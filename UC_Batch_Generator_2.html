@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uptime Assist — Weekly Batch Generator</title>
+<style>
+  :root {
+    --navy: #002B5C;
+    --blue: #1B4F8A;
+    --blue-light: #D6E4F0;
+    --gold: #C5982B;
+    --gold-light: #FFF3CD;
+    --white: #ffffff;
+    --gray-50: #F8F8F8;
+    --gray-100: #F0F0F0;
+    --gray-200: #E0E0E0;
+    --gray-400: #999999;
+    --gray-600: #555555;
+    --gray-800: #222222;
+    --green: #1E7E34;
+    --green-light: #E8F5E9;
+    --red: #C0392B;
+    --red-light: #FDECEA;
+    --amber: #E67E22;
+    --amber-light: #FEF3E2;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--gray-50); color: var(--gray-800); font-size: 14px; min-height: 100vh; }
+
+  .topbar { background: var(--navy); color: white; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar h1 { font-size: 15px; font-weight: 600; }
+  .topbar .sub { font-size: 11px; opacity: 0.6; margin-top: 2px; }
+
+  .page { max-width: 860px; margin: 0 auto; padding: 28px 24px 48px; }
+
+  /* Steps */
+  .steps { display: flex; gap: 0; margin-bottom: 28px; }
+  .step { display: flex; align-items: center; gap: 8px; flex: 1; }
+  .step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--gray-200); color: var(--gray-600); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .step.active .step-num { background: var(--navy); color: white; }
+  .step.done .step-num { background: var(--green); color: white; }
+  .step-label { font-size: 12px; color: var(--gray-400); }
+  .step.active .step-label { color: var(--gray-800); font-weight: 500; }
+  .step.done .step-label { color: var(--green); }
+  .step-line { flex: 1; height: 1px; background: var(--gray-200); margin: 0 8px; }
+
+  /* Cards */
+  .card { background: white; border: 1px solid var(--gray-200); border-radius: 10px; padding: 20px 22px; margin-bottom: 16px; }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--navy); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .card-desc { font-size: 12px; color: var(--gray-600); margin-bottom: 14px; line-height: 1.6; }
+
+  /* How to export instructions */
+  .export-steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .export-step { display: flex; gap: 10px; align-items: flex-start; font-size: 12px; color: var(--gray-600); line-height: 1.5; }
+  .export-step .n { width: 20px; height: 20px; border-radius: 50%; background: var(--navy); color: white; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .export-step strong { color: var(--gray-800); }
+
+  /* CSV paste area */
+  .csv-area { width: 100%; font-family: monospace; font-size: 11px; border: 1.5px dashed var(--gray-200); border-radius: 8px; padding: 12px; resize: vertical; min-height: 120px; max-height: 200px; background: var(--gray-50); color: var(--gray-800); outline: none; transition: border-color 0.15s; }
+  .csv-area:focus { border-color: var(--navy); background: white; }
+  .csv-area.has-data { border-color: var(--green); background: var(--green-light); border-style: solid; }
+
+  /* File drop zone */
+  .drop-zone { border: 1.5px dashed var(--gray-200); border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--gray-50); margin-bottom: 10px; }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--navy); background: var(--blue-light); }
+  .drop-zone.loaded { border-color: var(--green); background: var(--green-light); border-style: solid; }
+  .drop-zone-icon { font-size: 24px; margin-bottom: 6px; }
+  .drop-zone-text { font-size: 12px; color: var(--gray-600); }
+  .drop-zone.loaded .drop-zone-text { color: var(--green); font-weight: 500; }
+  #file-input { display: none; }
+
+  .or-divider { text-align: center; font-size: 11px; color: var(--gray-400); margin: 8px 0; }
+
+  /* Config grid */
+  .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; font-weight: 600; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.05em; }
+  .field input, .field select { padding: 7px 10px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px; font-family: var(--font); color: var(--gray-800); background: white; outline: none; transition: border-color 0.15s; }
+  .field input:focus, .field select:focus { border-color: var(--navy); }
+  .field .hint { font-size: 11px; color: var(--gray-400); }
+
+  /* Preview table */
+  .preview-wrap { overflow-x: auto; border: 1px solid var(--gray-200); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: var(--navy); color: white; padding: 8px 10px; text-align: left; font-weight: 500; font-size: 11px; white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--gray-100); color: var(--gray-800); }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: var(--gray-50); }
+  .coach-sep td { background: var(--blue-light); font-weight: 600; font-size: 11px; color: var(--navy); padding: 5px 10px; }
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 20px; white-space: nowrap; }
+  .badge-e { background: var(--red-light); color: var(--red); }
+  .badge-o { background: var(--amber-light); color: var(--amber); }
+  .badge-s { background: var(--green-light); color: var(--green); }
+
+  /* Summary cards */
+  .summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .sum-card { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px 12px; }
+  .sum-card .num { font-size: 22px; font-weight: 700; color: var(--navy); }
+  .sum-card .lbl { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+
+  /* Buttons */
+  .btn { padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; border: none; font-family: var(--font); }
+  .btn-primary { background: var(--navy); color: white; }
+  .btn-primary:hover { background: var(--blue); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: white; color: var(--gray-800); border: 1px solid var(--gray-200); }
+  .btn-secondary:hover { background: var(--gray-50); }
+  .btn-success { background: var(--green); color: white; }
+  .btn-success:hover { background: #166128; }
+  .btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  /* Alert */
+  .alert { padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; line-height: 1.5; }
+  .alert-info { background: var(--blue-light); color: var(--blue); border: 1px solid #B5D4F4; }
+  .alert-warn { background: var(--amber-light); color: var(--amber); border: 1px solid #FAC775; }
+  .alert-success { background: var(--green-light); color: var(--green); border: 1px solid #C0DD97; }
+  .alert-error { background: var(--red-light); color: var(--red); border: 1px solid #F7C1C1; }
+
+  /* Coach filter checkboxes */
+  .coach-checks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .coach-check { display: flex; align-items: center; gap: 5px; font-size: 12px; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 20px; padding: 3px 10px; cursor: pointer; transition: all 0.1s; user-select: none; }
+  .coach-check input { display: none; }
+  .coach-check.checked { background: var(--navy); color: white; border-color: var(--navy); }
+  .coach-check .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gray-400); }
+  .coach-check.checked .dot { background: white; }
+
+  #toast { position: fixed; bottom: 20px; right: 20px; background: var(--gray-800); color: white; padding: 10px 16px; border-radius: 6px; font-size: 12px; opacity: 0; transform: translateY(10px); transition: all 0.2s; pointer-events: none; z-index: 999; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.success { background: var(--green); }
+  #toast.error { background: var(--red); }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="h1">Uptime Assist — Weekly Batch Generator</div>
+    <div class="sub">Generate a fresh grading file each week from your SharePoint CSV export</div>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- Steps indicator -->
+  <div class="steps">
+    <div class="step active" id="step-1"><div class="step-num">1</div><div class="step-label">Load CSV</div></div>
+    <div class="step-line"></div>
+    <div class="step" id="step-2"><div class="step-num">2</div><div class="step-label">Configure batch</div></div>
+    <div class="step-line"></div>
+    <div class="step" id="step-3"><div class="step-num">3</div><div class="step-label">Preview & download</div></div>
+  </div>
+
+  <!-- Step 1: Load CSV -->
+  <div id="section-1">
+    <div class="card">
+      <div class="card-title">Step 1 — Export your SharePoint list to CSV</div>
+      <div class="card-desc">Each week you'll export the California UC Reporting Data Tracking list from SharePoint. Here's how:</div>
+      <div class="export-steps">
+        <div class="export-step"><div class="n">1</div><div>Open your SharePoint site and navigate to the <strong>California UC Reporting Data Tracking</strong> list</div></div>
+        <div class="export-step"><div class="n">2</div><div>Click <strong>Export → Export to Excel</strong> in the top toolbar. This downloads an <code>.iqy</code> file — open it and it will load in Excel</div></div>
+        <div class="export-step"><div class="n">3</div><div>In Excel, click <strong>File → Save As</strong>, change the format to <strong>CSV UTF-8 (Comma delimited)</strong>, and save it somewhere easy to find like your Desktop</div></div>
+        <div class="export-step"><div class="n">4</div><div>Come back here and either drag that CSV file onto the box below, or click to browse for it</div></div>
+      </div>
+
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <div class="drop-zone-icon">📂</div>
+        <div class="drop-zone-text" id="drop-text">Drop your CSV file here, or click to browse</div>
+      </div>
+      <input type="file" id="file-input" accept=".csv,.txt" onchange="handleFileSelect(event)">
+
+      <div class="or-divider">— or paste CSV text directly —</div>
+      <textarea class="csv-area" id="csv-input" placeholder="Paste the full CSV content here (Ctrl+A then Ctrl+C from the CSV file, then paste here)..." oninput="handleCSVPaste()"></textarea>
+
+      <div id="load-status" class="hidden" style="margin-top:10px"></div>
+
+      <div style="margin-top:14px">
+        <button class="btn btn-primary" id="parse-btn" onclick="parseCSV()" disabled>Parse CSV →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Configure -->
+  <div id="section-2" class="hidden">
+    <div class="card">
+      <div class="card-title">Step 2 — Configure this week's batch</div>
+      <div class="card-desc">Set the date range to filter last week's ROs, then choose how many per coach to sample.</div>
+
+      <div class="config-grid" style="margin-bottom:14px">
+        <div class="field">
+          <label>Date range — from</label>
+          <input type="date" id="date-from">
+          <div class="hint">RO Open Date on or after this date</div>
+        </div>
+        <div class="field">
+          <label>Date range — to</label>
+          <input type="date" id="date-to">
+          <div class="hint">RO Open Date on or before this date</div>
+        </div>
+        <div class="field">
+          <label>Sample size per coach</label>
+          <select id="sample-size">
+            <option value="5">5 per coach</option>
+            <option value="10" selected>10 per coach</option>
+            <option value="15">15 per coach</option>
+            <option value="999">All (no limit)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Week label (for filename)</label>
+          <input type="text" id="week-label" placeholder="e.g. Week of Apr 28">
+          <div class="hint">Used in the filename and grading app header</div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:14px">
+        <label>Include these coaches</label>
+        <div class="hint" style="margin-bottom:6px">Uncheck any coaches you want to exclude from this batch</div>
+        <div class="coach-checks" id="coach-checks"></div>
+      </div>
+
+      <div class="field" style="margin-bottom:14px">
+        <label>Google Sheets URL (optional)</label>
+        <input type="text" id="sheets-url" placeholder="https://script.google.com/macros/s/YOUR_ID/exec" style="width:100%">
+        <div class="hint">If you paste this here it will be pre-filled in the generated grading file — saves your manager a step</div>
+      </div>
+
+      <div id="filter-status" class="hidden" style="margin-bottom:12px"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goBack()">← Back</button>
+        <button class="btn btn-primary" onclick="generatePreview()">Preview batch →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Preview & Download -->
+  <div id="section-3" class="hidden">
+    <div class="card">
+      <div class="card-title">Step 3 — Preview & download</div>
+
+      <div class="summary-row" id="summary-row"></div>
+
+      <div id="preview-alert" class="hidden" style="margin-bottom:12px"></div>
+
+      <div class="preview-wrap" style="margin-bottom:16px">
+        <table id="preview-table">
+          <thead><tr><th>Coach</th><th>RO #</th><th>Model</th><th>Dealer</th><th>RO Open Date</th><th>UA Status</th><th>Repair Complete</th></tr></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="goToStep(2)">← Adjust</button>
+        <button class="btn btn-success" id="download-btn" onclick="downloadGradingFile()">Download grading file</button>
+        <span style="font-size:12px;color:var(--gray-400)" id="download-hint"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+let parsedRows = [];
+let batchROs = [];
+let allCoaches = [];
+
+// ── Step 1: CSV Loading ──────────────────────────────────────────────────
+
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.add('dragover');
+}
+function handleDragLeave(e) {
+  document.getElementById('drop-zone').classList.remove('dragover');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) readFile(file);
+}
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('csv-input').value = e.target.result;
+    document.getElementById('csv-input').classList.add('has-data');
+    document.getElementById('drop-zone').classList.add('loaded');
+    document.getElementById('drop-text').textContent = '✓ ' + file.name + ' loaded';
+    document.getElementById('parse-btn').disabled = false;
+    showStatus('load-status', `File loaded: ${file.name} (${Math.round(file.size/1024)}KB)`, 'success');
+  };
+  reader.readAsText(file);
+}
+function handleCSVPaste() {
+  const val = document.getElementById('csv-input').value.trim();
+  if (val.length > 100) {
+    document.getElementById('csv-input').classList.add('has-data');
+    document.getElementById('parse-btn').disabled = false;
+  }
+}
+
+function parseCSV() {
+  const raw = document.getElementById('csv-input').value.trim();
+  if (!raw) return;
+
+  try {
+    const rows = parseCSVText(raw);
+    if (rows.length < 2) {
+      showStatus('load-status', 'Could not parse CSV — make sure you copied the full file including the header row.', 'error');
+      return;
+    }
+
+    const headers = rows[0];
+    parsedRows = rows.slice(1).map(r => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h.trim()] = (r[i]||'').trim());
+      return obj;
+    }).filter(r => Object.values(r).some(v => v));
+
+    // Detect required columns
+    const coachCol = headers.find(h => h.toLowerCase().includes('uptime coach') || h.toLowerCase().includes('coach'));
+    const roCol = headers.find(h => h.includes('RO') && (h.includes('#') || h.includes('23')));
+    const dateCol = headers.find(h => h.toLowerCase().includes('ro open date'));
+
+    if (!coachCol || !roCol || !dateCol) {
+      showStatus('load-status', `Could not find required columns. Found: ${headers.slice(0,5).join(', ')}... — Make sure this is the California UC Reporting Data Tracking export.`, 'error');
+      return;
+    }
+
+    allCoaches = [...new Set(parsedRows.map(r => r[coachCol]).filter(Boolean))].sort();
+
+    showStatus('load-status', `✓ Parsed ${parsedRows.length} rows across ${allCoaches.length} coaches`, 'success');
+
+    // Set default date range to last 7 days
+    const today = new Date();
+    const lastWeek = new Date(today);
+    lastWeek.setDate(today.getDate() - 7);
+    document.getElementById('date-from').value = formatDateInput(lastWeek);
+    document.getElementById('date-to').value = formatDateInput(today);
+
+    // Set default week label
+    document.getElementById('week-label').value = 'Week of ' + lastWeek.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+
+    // Pre-fill Sheets URL if saved
+    const saved = localStorage.getItem('qi_sheet_url');
+    if (saved) document.getElementById('sheets-url').value = saved;
+
+    // Build coach checkboxes
+    buildCoachChecks();
+
+    goToStep(2);
+
+  } catch(e) {
+    showStatus('load-status', 'Error parsing CSV: ' + e.message, 'error');
+  }
+}
+
+function parseCSVText(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], next = text[i+1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { field += '"'; i++; }
+      else if (ch === '"') inQuotes = false;
+      else field += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\n' || (ch === '\r' && next === '\n')) {
+        row.push(field); rows.push(row); row = []; field = '';
+        if (ch === '\r') i++;
+      } else if (ch === '\r') {
+        row.push(field); rows.push(row); row = []; field = '';
+      } else field += ch;
+    }
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => c));
+}
+
+function buildCoachChecks() {
+  const container = document.getElementById('coach-checks');
+  container.innerHTML = allCoaches.map(c =>
+    `<label class="coach-check checked" id="check-${esc(c)}">
+      <input type="checkbox" checked onchange="toggleCoach(this,'${esc(c)}')">
+      <div class="dot"></div>${c}
+    </label>`
+  ).join('');
+}
+
+function toggleCoach(cb, coach) {
+  const label = document.getElementById('check-' + esc(coach));
+  if (cb.checked) label.classList.add('checked');
+  else label.classList.remove('checked');
+}
+
+function esc(s) { return (s||'').replace(/[^a-zA-Z0-9]/g,'_'); }
+
+// ── Step 2: Generate Preview ─────────────────────────────────────────────
+
+function generatePreview() {
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo = document.getElementById('date-to').value;
+  const sampleSize = parseInt(document.getElementById('sample-size').value);
+
+  // Get checked coaches
+  const checkedCoaches = allCoaches.filter(c => {
+    const label = document.getElementById('check-' + esc(c));
+    return label && label.classList.contains('checked');
+  });
+
+  if (checkedCoaches.length === 0) {
+    showToast('Select at least one coach', 'error');
+    return;
+  }
+
+  // Find column names
+  const headers = Object.keys(parsedRows[0]);
+  const coachCol = headers.find(h => h.toLowerCase().includes('uptime coach') || h.toLowerCase().includes('coach'));
+  const roCol = headers.find(h => h.includes('RO') && (h.includes('#') || h.includes('23')));
+  const dateCol = headers.find(h => h.toLowerCase().includes('ro open date'));
+  const dealerCol = headers.find(h => h.toLowerCase().includes('dealer name'));
+  const modelCol = headers.find(h => h.trim().toLowerCase() === 'model');
+  const vinCol = headers.find(h => h.trim().toLowerCase() === 'vin');
+  const statusCol = headers.find(h => h.toLowerCase().includes('ua status'));
+  const servicesCol = headers.find(h => h.toLowerCase().includes('services needed'));
+  const respCol = headers.find(h => h.toLowerCase().includes('current responsibility'));
+  // Delay columns — new export splits into multiple columns, combine them
+  const delay1Col = headers.find(h => h.toLowerCase().includes('primary repair delay'));
+  const delay2Col = headers.find(h => h.toLowerCase().includes('secondary repair delay'));
+  const delay3Col = headers.find(h => h.toLowerCase().includes('third repair delay'));
+  const delay4Col = headers.find(h => h.toLowerCase().includes('fourth repair delay'));
+  const visit1DateCol = headers.find(h => h.toLowerCase().includes('initial visit date'));
+  const visit1Col = headers.find(h => h.toLowerCase().includes('initial visit summary'));
+  const visit2DateCol = headers.find(h => h.toLowerCase().includes('2nd visit date'));
+  const visit2Col = headers.find(h => h.toLowerCase().includes('second visit summary'));
+  const visit3DateCol = headers.find(h => h.toLowerCase().includes('3rd visit date'));
+  const visit3Col = headers.find(h => h.toLowerCase().includes('third visit summary'));
+  const contCol = headers.find(h => h.toLowerCase().includes('continued visit'));
+  // UC Work and Interventions may be gone — use visit focus columns as fallback
+  const ucWorkCol = headers.find(h => h.toLowerCase().includes('uc work and interventions'));
+  const focus1Col = headers.find(h => h.toLowerCase().includes('initial visit focus'));
+  const focus2Col = headers.find(h => h.toLowerCase().includes('2nd visit focus'));
+  const focus3Col = headers.find(h => h.toLowerCase().includes('3rd visit focus'));
+  const contFocusCol = headers.find(h => h.toLowerCase().includes('continued visits focus'));
+  const repairSumCol = headers.find(h => h.toLowerCase().includes('repair summary'));
+  const finalCol = headers.find(h => h.toLowerCase().includes('final journey'));
+  const completedCol = headers.find(h => h.toLowerCase().includes('repair completed'));
+  const closedDateCol = headers.find(h => h.toLowerCase().includes('ro closed date'));
+  // Days to repair — new export calls it Lead Time to close
+  const daysCol = headers.find(h => h.toLowerCase().includes('number of days') || h.toLowerCase().includes('lead time to close'));
+  const gtacCol = headers.find(h => h.toLowerCase().includes('gtac'));
+  const copisCol = headers.find(h => h.toLowerCase().includes('copis'));
+  const partNumCol = headers.find(h => h.toLowerCase().includes('part order number'));
+  const paCodeCol = headers.find(h => h.toLowerCase().includes('pa code'));
+  const specialAttnCol = headers.find(h => h.toLowerCase().includes('special attention'));
+
+  // Helper to combine delay columns into one readable string
+  function getDelays(r) {
+    return [delay1Col, delay2Col, delay3Col, delay4Col]
+      .map(c => c ? (r[c]||'').trim() : '')
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  // Helper to combine UC work/interventions from available columns
+  function getUCWork(r) {
+    if (ucWorkCol && r[ucWorkCol]) return cleanArrayField(r[ucWorkCol]);
+    return [focus1Col, focus2Col, focus3Col, contFocusCol]
+      .map(c => c ? (r[c]||'').trim() : '')
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  // Filter by date range
+  let filtered = parsedRows.filter(r => {
+    const coach = r[coachCol];
+    if (!coach || !checkedCoaches.includes(coach)) return false;
+    if (!dateFrom && !dateTo) return true;
+    const roDate = parseDate(r[dateCol]);
+    if (!roDate) return false;
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to = dateTo ? new Date(dateTo + 'T23:59:59') : null;
+    if (from && roDate < from) return false;
+    if (to && roDate > to) return false;
+    return true;
+  });
+
+  const totalBeforeSample = filtered.length;
+
+  if (filtered.length === 0) {
+    const alert = document.getElementById('filter-status');
+    alert.className = 'alert alert-warn';
+    alert.textContent = `No ROs found between ${dateFrom} and ${dateTo} for the selected coaches. Try widening the date range — your export may cover a different period.`;
+    alert.classList.remove('hidden');
+    return;
+  }
+
+  document.getElementById('filter-status').classList.add('hidden');
+
+  // Sample per coach (random, seeded by week label for reproducibility)
+  const seed = document.getElementById('week-label').value || dateFrom;
+  batchROs = [];
+  checkedCoaches.forEach(coach => {
+    let coachROs = filtered.filter(r => r[coachCol] === coach);
+    if (coachROs.length === 0) return;
+    // Shuffle deterministically
+    coachROs = seededShuffle(coachROs, seed + coach);
+    const take = Math.min(sampleSize, coachROs.length);
+    batchROs.push(...coachROs.slice(0, take));
+  });
+
+  // Build normalized records for the grading app
+  const normalizedROs = batchROs.map(r => ({
+    coach: r[coachCol] || '',
+    dealer: r[dealerCol] || '',
+    'RO#': r[roCol] || '',
+    VIN: r[vinCol] || '',
+    Model: r[modelCol] || '',
+    'RO Open Date': r[dateCol] || '',
+    'Dealer Name': r[dealerCol] || '',
+    'UA Status': r[statusCol] || '',
+    'PA Code': paCodeCol ? (r[paCodeCol] || '') : '',
+    'Special Attention': specialAttnCol ? (r[specialAttnCol] || '') : '',
+    'Services Needed Detail': r[servicesCol] || '',
+    'Current Responsibility': r[respCol] || '',
+    'Primary Repair Delay Category': getDelays(r),
+    'Initial Visit Date Regarding This VIN': r[visit1DateCol] || '',
+    'Initial Visit Summary and UC Work Details': r[visit1Col] || '',
+    '2nd Visit Date': r[visit2DateCol] || '',
+    'Second Visit Summary and UC Work': r[visit2Col] || '',
+    '3rd Visit Date': r[visit3DateCol] || '',
+    'Third Visit Summary and UC Work': r[visit3Col] || '',
+    'Continued Visit Dates and Summary': r[contCol] || '',
+    'UC Work and Interventions': getUCWork(r),
+    'Repair Summary': r[repairSumCol] || '',
+    'Final Journey Comments': r[finalCol] || '',
+    'Repair Completed?': r[completedCol] || '',
+    'RO Closed Date': r[closedDateCol] || '',
+    'Number of Days to Repair': r[daysCol] || '',
+    'GTAC Ticket Number': r[gtacCol] || '',
+    'Copis Case Number': r[copisCol] || '',
+    'Part Order Number': r[partNumCol] || ''
+  }));
+
+  window._normalizedROs = normalizedROs;
+
+  // Render preview
+  renderPreview(normalizedROs, totalBeforeSample);
+  goToStep(3);
+}
+
+function cleanArrayField(val) {
+  if (!val || val.trim() === '') return '';
+  try {
+    const parsed = JSON.parse(val);
+    if (Array.isArray(parsed)) return parsed.join(' · ');
+  } catch(e) {}
+  const items = (val.match(/"([^"]+)"/g) || []).map(s => s.replace(/"/g,''));
+  if (items.length > 0) return items.join(' · ');
+  return val;
+}
+
+function renderPreview(ros, totalBeforeSample) {
+  const byCoach = {};
+  ros.forEach(r => {
+    if (!byCoach[r.coach]) byCoach[r.coach] = [];
+    byCoach[r.coach].push(r);
+  });
+
+  const coaches = Object.keys(byCoach).sort();
+  const tbody = document.getElementById('preview-body');
+  let html = '';
+  coaches.forEach(coach => {
+    html += `<tr class="coach-sep"><td colspan="7">${escHtml(coach)} — ${byCoach[coach].length} ROs</td></tr>`;
+    byCoach[coach].forEach(r => {
+      const badgeCls = r['UA Status'] === 'Dealer Escalated' ? 'badge-e' : r['UA Status'] === 'Off-Pace' ? 'badge-o' : r['UA Status'] === 'Within Standard' ? 'badge-s' : '';
+      html += `<tr>
+        <td>${escHtml(r.coach)}</td>
+        <td><strong>${escHtml(r['RO#'])}</strong></td>
+        <td>${escHtml(r.Model)}</td>
+        <td>${escHtml(r['Dealer Name'])}</td>
+        <td>${escHtml(r['RO Open Date'])}</td>
+        <td>${r['UA Status'] ? `<span class="badge ${badgeCls}">${escHtml(r['UA Status'])}</span>` : '—'}</td>
+        <td>${r['Repair Completed?'] || '—'}</td>
+      </tr>`;
+    });
+  });
+  tbody.innerHTML = html;
+
+  // Summary cards
+  document.getElementById('summary-row').innerHTML = `
+    <div class="sum-card"><div class="num">${ros.length}</div><div class="lbl">Total ROs in batch</div></div>
+    <div class="sum-card"><div class="num">${coaches.length}</div><div class="lbl">Coaches included</div></div>
+    <div class="sum-card"><div class="num">${totalBeforeSample}</div><div class="lbl">ROs in date range</div></div>
+    <div class="sum-card"><div class="num">${Math.round(ros.length/coaches.length)}</div><div class="lbl">Avg per coach</div></div>
+  `;
+
+  document.getElementById('download-hint').textContent =
+    `${ros.length} ROs · ${coaches.length} coaches · ${document.getElementById('week-label').value}`;
+
+  if (totalBeforeSample < ros.length * 1.2) {
+    const alert = document.getElementById('preview-alert');
+    alert.className = 'alert alert-info';
+    alert.textContent = `Note: Some coaches had fewer than the requested sample size — all available ROs for those coaches are included.`;
+    alert.classList.remove('hidden');
+  }
+}
+
+// ── Step 3: Download ─────────────────────────────────────────────────────
+
+function downloadGradingFile() {
+  const ros = window._normalizedROs;
+  if (!ros || ros.length === 0) return;
+
+  const weekLabel = document.getElementById('week-label').value || 'This week';
+  const sheetsUrl = document.getElementById('sheets-url').value.trim();
+  if (sheetsUrl) localStorage.setItem('qi_sheet_url', sheetsUrl);
+
+  const gradingHTML = buildGradingHTML(ros, weekLabel, sheetsUrl);
+
+  const a = document.createElement('a');
+  const filename = 'UC_Quality_Grader_' + weekLabel.replace(/[^a-zA-Z0-9]/g, '_') + '.html';
+  a.href = 'data:text/html;charset=utf-8,' + encodeURIComponent(gradingHTML);
+  a.download = filename;
+  a.click();
+
+  showToast(`Downloaded ${filename}`, 'success');
+  document.getElementById('download-hint').textContent = `✓ Downloaded — open the file in Chrome or Edge to start grading`;
+}
+
+function buildGradingHTML(ros, weekLabel, sheetsUrl) {
+  const rosJson = JSON.stringify(ros);
+  const sheetsUrlEscaped = (sheetsUrl||'').replace(/'/g,"\\'");
+  const connectedClass = sheetsUrl ? 'connected' : '';
+  const connDotClass = sheetsUrl ? 'ok' : '';
+  const connStatus = sheetsUrl ? 'Connected to Google Sheets.' : 'Not connected to Google Sheets.';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UC Quality Grader — ${escHtml(weekLabel)}</title>
+<style>
+  :root{--navy:#002B5C;--blue:#1B4F8A;--blue-light:#D6E4F0;--gold:#C5982B;--gold-light:#FFF3CD;--white:#ffffff;--gray-50:#F8F8F8;--gray-100:#F0F0F0;--gray-200:#E0E0E0;--gray-400:#999999;--gray-600:#555555;--gray-800:#222222;--green:#1E7E34;--green-light:#E8F5E9;--red:#C0392B;--red-light:#FDECEA;--amber:#E67E22;--amber-light:#FEF3E2;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:var(--gray-50);color:var(--gray-800);font-size:14px}
+  #app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  .topbar{background:var(--navy);color:white;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  .topbar h1{font-size:15px;font-weight:600}
+  .topbar .meta{font-size:11px;opacity:.7;margin-top:1px}
+  .topbar-right{display:flex;gap:8px;align-items:center}
+  .main{display:grid;grid-template-columns:300px 1fr;flex:1;overflow:hidden}
+  #setup-banner{background:var(--gold-light);border-bottom:1px solid var(--gold);padding:10px 20px;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--gray-800);flex-shrink:0}
+  #setup-banner a{color:var(--blue);font-weight:600}
+  #setup-banner input{padding:4px 8px;border:1px solid var(--gray-200);border-radius:4px;font-size:12px;width:340px}
+  #setup-banner button{padding:4px 10px;background:var(--navy);color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px}
+  #setup-banner.connected{background:var(--green-light);border-color:var(--green)}
+  .conn-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0}
+  .conn-dot.ok{background:var(--green)}
+  .queue-panel{border-right:1px solid var(--gray-200);overflow-y:auto;background:white;display:flex;flex-direction:column}
+  .queue-header{padding:12px 14px 8px;border-bottom:1px solid var(--gray-200);flex-shrink:0}
+  .queue-header h3{font-size:12px;font-weight:600;color:var(--gray-600);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+  .progress-bar{height:4px;background:var(--gray-100);border-radius:2px;overflow:hidden}
+  .progress-fill{height:100%;background:var(--green);border-radius:2px;transition:width .3s}
+  .progress-label{font-size:11px;color:var(--gray-400);margin-top:3px;margin-bottom:6px}
+  .filter-tabs{display:flex;gap:4px}
+  .ftab{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--gray-200);background:white;cursor:pointer;color:var(--gray-600);transition:all .1s}
+  .ftab.active{background:var(--navy);color:white;border-color:var(--navy)}
+  .coach-group{border-bottom:1px solid var(--gray-100)}
+  .coach-label{font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.08em;padding:8px 14px 4px;background:var(--gray-50);display:flex;justify-content:space-between;align-items:center}
+  .queue-item{padding:8px 14px;cursor:pointer;border-bottom:1px solid var(--gray-100);transition:background .1s;display:grid;grid-template-columns:1fr auto;gap:4px;align-items:start}
+  .queue-item:hover{background:var(--blue-light)}
+  .queue-item.active{background:var(--blue-light);border-left:3px solid var(--navy)}
+  .queue-item.graded{opacity:.55}
+  .qi-ro{font-size:12px;font-weight:600;color:var(--gray-800)}
+  .qi-detail{font-size:11px;color:var(--gray-600);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+  .qi-status{font-size:10px;padding:2px 6px;border-radius:20px;white-space:nowrap;margin-top:2px}
+  .status-pending{background:var(--gray-100);color:var(--gray-600)}
+  .status-graded{background:var(--green-light);color:var(--green)}
+  .grade-panel{overflow-y:auto;display:flex;flex-direction:column}
+  .empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--gray-400);gap:8px}
+  .empty-state p{font-size:13px}
+  .ro-detail{padding:16px 20px 0;border-bottom:1px solid var(--gray-200)}
+  .ro-title-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+  .ro-number{font-size:18px;font-weight:700;color:var(--navy)}
+  .ro-badge{font-size:11px;padding:3px 8px;border-radius:20px;font-weight:500}
+  .badge-escalated{background:var(--red-light);color:var(--red)}
+  .badge-offpace{background:var(--amber-light);color:var(--amber)}
+  .badge-standard{background:var(--green-light);color:var(--green)}
+  .badge-default{background:var(--gray-100);color:var(--gray-600)}
+  .ro-meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+  .meta-item .lbl{font-size:10px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+  .meta-item .val{font-size:12px;font-weight:500;color:var(--gray-800)}
+  .fields-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-bottom:16px}
+  .field-block .fl{font-size:10px;color:var(--gray-400);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;font-weight:600}
+  .field-block .fv{font-size:12px;color:var(--gray-800);line-height:1.5;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:5px;padding:7px 9px;min-height:34px;max-height:120px;overflow-y:auto}
+  .field-block.full{grid-column:1/-1}
+  .field-block .fv.empty{color:var(--gray-400);font-style:italic}
+  .scoring-section{padding:16px 20px}
+  .scoring-section h3{font-size:12px;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+  .criteria-list{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+  .criterion{background:white;border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px}
+  .crit-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px}
+  .crit-name{font-size:13px;font-weight:600;color:var(--gray-800)}
+  .crit-weight{font-size:11px;color:var(--gray-400)}
+  .crit-desc{font-size:11px;color:var(--gray-600);line-height:1.5;margin-bottom:8px}
+  .score-btns{display:flex;gap:5px;align-items:center}
+  .sbtn{width:36px;height:32px;border-radius:5px;border:1px solid var(--gray-200);background:var(--gray-50);font-size:12px;font-weight:600;cursor:pointer;transition:all .1s;color:var(--gray-600);display:flex;align-items:center;justify-content:center}
+  .sbtn:hover{border-color:var(--navy);color:var(--navy);background:var(--blue-light)}
+  .sbtn.sel-1,.sbtn.sel-2{background:var(--red-light);border-color:#F09595;color:var(--red)}
+  .sbtn.sel-3{background:var(--amber-light);border-color:#EF9F27;color:var(--amber)}
+  .sbtn.sel-4,.sbtn.sel-5{background:var(--green-light);border-color:#97C459;color:var(--green)}
+  .score-hint{font-size:10px;color:var(--gray-400);margin-left:8px}
+  .qi-bar{display:flex;align-items:center;justify-content:space-between;background:var(--navy);color:white;border-radius:8px;padding:12px 16px;margin-bottom:14px}
+  .qi-number{font-size:28px;font-weight:700}
+  .qi-label-small{font-size:11px;opacity:.7;margin-top:1px}
+  .qi-breakdown{display:flex;gap:8px;flex-wrap:wrap}
+  .qi-chip{font-size:10px;background:rgba(255,255,255,.12);padding:2px 7px;border-radius:20px}
+  .qi-chip.unset{opacity:.4}
+  .notes-row{margin-bottom:14px}
+  .notes-row label{font-size:11px;color:var(--gray-600);font-weight:600;display:block;margin-bottom:4px}
+  .notes-row textarea{width:100%;font-family:var(--font);font-size:12px;border:1px solid var(--gray-200);border-radius:6px;padding:8px 10px;resize:vertical;min-height:64px;background:white;color:var(--gray-800);outline:none}
+  .notes-row textarea:focus{border-color:var(--navy)}
+  .submit-row{display:flex;gap:8px;align-items:center;padding-bottom:24px}
+  .btn-submit{padding:10px 24px;background:var(--navy);color:white;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+  .btn-submit:hover{background:var(--blue)}
+  .btn-submit:disabled{opacity:.4;cursor:not-allowed}
+  .btn-submit.saving{background:var(--amber)}
+  .btn-submit.saved{background:var(--green)}
+  .submit-msg{font-size:12px;color:var(--gray-400)}
+  .btn-top{padding:5px 12px;font-size:11px;border-radius:5px;border:1px solid rgba(255,255,255,.3);background:transparent;color:white;cursor:pointer;transition:all .1s}
+  .btn-top:hover{background:rgba(255,255,255,.15)}
+  .grader-select{font-size:11px;padding:4px 8px;border-radius:5px;border:1px solid rgba(255,255,255,.3);background:transparent;color:white;cursor:pointer}
+  .grader-select option{color:var(--gray-800);background:white}
+  #toast{position:fixed;bottom:20px;right:20px;background:var(--gray-800);color:white;padding:10px 16px;border-radius:6px;font-size:12px;opacity:0;transform:translateY(10px);transition:all .2s;pointer-events:none;z-index:999}
+  #toast.show{opacity:1;transform:translateY(0)}
+  #toast.error{background:var(--red)}
+  #toast.success{background:var(--green)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="topbar">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <h1>Uptime Assist — Quality Index Grader</h1>
+        <span style="font-size:11px;opacity:.5;font-weight:400">${escHtml(weekLabel)} · ${ros.length} ROs</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <label style="font-size:11px;opacity:.7;color:white">Grading as:</label>
+      <select class="grader-select" id="grader-select">
+        <option value="Kurt (You)">Kurt (You)</option>
+        <option value="Manager">Manager</option>
+      </select>
+      <button class="btn-top" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </div>
+  <div id="setup-banner" class="${connectedClass}">
+    <div class="conn-dot ${connDotClass}" id="conn-dot"></div>
+    <span id="conn-status">${connStatus}</span>
+    <span>Paste your Apps Script URL to save scores automatically:</span>
+    <input type="text" id="sheet-url" value="${sheetsUrlEscaped}" placeholder="https://script.google.com/macros/s/YOUR_ID/exec">
+    <button onclick="saveSheetUrl()">Connect</button>
+    <span style="color:var(--gray-400);margin-left:4px">·</span>
+    <a href="#" onclick="showSetupGuide();return false;">Setup guide</a>
+  </div>
+  <div class="main">
+    <div class="queue-panel">
+      <div class="queue-header">
+        <h3>Submissions queue</h3>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+        <div class="progress-label" id="progress-label">0 / ${ros.length} graded</div>
+        <div class="filter-tabs">
+          <button class="ftab active" onclick="setFilter('all',this)">All</button>
+          <button class="ftab" onclick="setFilter('pending',this)">Pending</button>
+          <button class="ftab" onclick="setFilter('graded',this)">Graded</button>
+        </div>
+      </div>
+      <div id="queue-list"></div>
+    </div>
+    <div class="grade-panel" id="grade-panel">
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>
+        <p>Select a submission from the queue to begin grading</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const ROS=${rosJson};
+const CRITERIA=[{key:'accuracy',name:'Accuracy',weight:.25,desc:'Internal consistency: completed status matches closed date, days to repair, and RO Closed flag.'},{key:'completeness',name:'Completeness',weight:.20,desc:'Required fields filled — services needed, responsibility, initial visit summary, UC work, delay category, repair summary.'},{key:'clarity',name:'Clarity',weight:.15,desc:'Visit summaries are specific, well-structured, and clearly describe what the coach observed and did.'},{key:'timeliness',name:'Timeliness',weight:.15,desc:'Initial visit was made promptly after RO opened. Entries are dated and follow a logical sequence.'},{key:'evidence',name:'Evidence',weight:.15,desc:'Supporting documentation present — GTAC, COPIS, part numbers, tech line cases where appropriate.'},{key:'actionability',name:'Actionability',weight:.10,desc:'UC interventions are clearly documented with specific actions taken and next steps or outcomes noted.'}];
+const SCORE_LABELS={1:'Poor',2:'Below std',3:'Acceptable',4:'Good',5:'Excellent'};
+let scores={},currentIdx=null,filter='all';
+let sheetUrl=localStorage.getItem('qi_sheet_url')||'${sheetsUrlEscaped}';
+function init(){if(sheetUrl){document.getElementById('sheet-url').value=sheetUrl;updateConnectionStatus(true);}loadSavedScores();renderQueue();updateProgress();}
+function loadSavedScores(){const saved=localStorage.getItem('qi_scores_${weekLabel.replace(/[^a-zA-Z0-9]/g,'_')}');if(saved){try{scores=JSON.parse(saved);}catch(e){scores={};}}}
+function saveLocalScores(){localStorage.setItem('qi_scores_${weekLabel.replace(/[^a-zA-Z0-9]/g,'_')}',JSON.stringify(scores));}
+function updateProgress(){const total=ROS.length,graded=Object.keys(scores).length,pct=Math.round(graded/total*100);document.getElementById('progress-fill').style.width=pct+'%';document.getElementById('progress-label').textContent=graded+' / '+total+' graded';}
+function setFilter(f,btn){filter=f;document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderQueue();}
+function renderQueue(){const list=document.getElementById('queue-list');const coaches=[...new Set(ROS.map(r=>r.coach))];let html='';coaches.forEach(coach=>{const coachROs=ROS.map((r,i)=>({...r,_idx:i})).filter(r=>r.coach===coach);const visible=coachROs.filter(r=>{if(filter==='pending')return!scores[r['RO#']];if(filter==='graded')return!!scores[r['RO#']];return true;});if(visible.length===0)return;const gradedCount=coachROs.filter(r=>scores[r['RO#']]).length;html+='<div class="coach-group"><div class="coach-label">'+coach+'<span style="font-size:10px;color:var(--gray-400);font-weight:400">'+gradedCount+'/'+coachROs.length+'</span></div>';visible.forEach(r=>{const isGraded=!!scores[r['RO#']];const isActive=currentIdx===r._idx;const qi=isGraded?scores[r['RO#']].qi.toFixed(0):'';html+='<div class="queue-item'+(isActive?' active':'')+(isGraded?' graded':'')+'" onclick="selectRO('+r._idx+')"><div><div class="qi-ro">RO #'+escHtml(r['RO#'])+'</div><div class="qi-detail">'+escHtml(r.Model)+' · '+escHtml(r['Dealer Name'])+'</div></div><div style="text-align:right">'+(isGraded?'<div style="font-size:13px;font-weight:700;color:var(--navy)">'+qi+'</div>':'')+'<div class="qi-status '+(isGraded?'status-graded':'status-pending')+'">'+(isGraded?'Graded':'Pending')+'</div></div></div>';});html+='</div>';});list.innerHTML=html;}
+function selectRO(idx){currentIdx=idx;renderQueue();renderGradePanel();}
+function renderGradePanel(){const ro=ROS[currentIdx];const existing=scores[ro['RO#']]||{};const panel=document.getElementById('grade-panel');const badgeClass=ro['UA Status']==='Dealer Escalated'?'badge-escalated':ro['UA Status']==='Off-Pace'?'badge-offpace':ro['UA Status']==='Within Standard'?'badge-standard':'badge-default';function fv(val,emptyText){const v=(val||'').trim();return v?'<div class="fv">'+escHtml(v)+'</div>':'<div class="fv empty">'+(emptyText||'—')+'</div>';}let criteriaHtml='';CRITERIA.forEach(c=>{const sel=existing[c.key]||0;let btns='';for(let i=1;i<=5;i++){btns+='<button class="sbtn'+(sel===i?' sel-'+i:'')+'" onclick="setScore(\''+c.key+'\','+i+',this)">'+i+'</button>';}criteriaHtml+='<div class="criterion" id="crit-'+c.key+'"><div class="crit-header"><span class="crit-name">'+c.name+'</span><span class="crit-weight">'+Math.round(c.weight*100)+'% weight</span></div><div class="crit-desc">'+c.desc+'</div><div class="score-btns">'+btns+'<span class="score-hint" id="hint-'+c.key+'">'+(sel?SCORE_LABELS[sel]:'Not scored')+'</span></div></div>';});const qi=calcQI(existing);const qiDisplay=qi!==null?qi.toFixed(1):'—';panel.innerHTML='<div class="ro-detail"><div class="ro-title-row"><span class="ro-number">RO #'+escHtml(ro['RO#'])+'</span>'+(ro['UA Status']?'<span class="ro-badge '+badgeClass+'">'+escHtml(ro['UA Status'])+'</span>':'')+'<span style="font-size:11px;color:var(--gray-400);margin-left:auto">'+escHtml(ro.coach)+'</span></div><div class="ro-meta-grid"><div class="meta-item"><div class="lbl">Dealer</div><div class="val">'+escHtml(ro['Dealer Name'])+'</div></div><div class="meta-item"><div class="lbl">Model</div><div class="val">'+escHtml(ro.Model)+'</div></div><div class="meta-item"><div class="lbl">RO opened</div><div class="val">'+escHtml(ro['RO Open Date'])+'</div></div><div class="meta-item"><div class="lbl">Repair complete</div><div class="val">'+escHtml(ro['Repair Completed?'])+(ro['RO Closed Date']?' · '+ro['RO Closed Date']:'')+'</div></div></div><div class="fields-grid"><div class="field-block"><div class="fl">Services needed</div>'+fv(ro['Services Needed Detail'],'Not specified')+'</div><div class="field-block"><div class="fl">Delay category</div>'+fv(ro['Primary Repair Delay Category'],'Not specified')+'</div><div class="field-block full"><div class="fl">Initial visit ('+escHtml(ro['Initial Visit Date Regarding This VIN']||'—')+')</div>'+fv(ro['Initial Visit Summary and UC Work Details'],'No initial visit summary entered')+'</div>'+(ro['2nd Visit Date']?'<div class="field-block full"><div class="fl">2nd visit ('+escHtml(ro['2nd Visit Date'])+')</div>'+fv(ro['Second Visit Summary and UC Work'])+'</div>':'')+(ro['3rd Visit Date']?'<div class="field-block full"><div class="fl">3rd visit ('+escHtml(ro['3rd Visit Date'])+')</div>'+fv(ro['Third Visit Summary and UC Work'])+'</div>':'')+(ro['Continued Visit Dates and Summary']?'<div class="field-block full"><div class="fl">Continued visits</div>'+fv(ro['Continued Visit Dates and Summary'])+'</div>':'')+'<div class="field-block full"><div class="fl">UC work & interventions</div>'+fv(ro['UC Work and Interventions'],'None recorded')+'</div><div class="field-block"><div class="fl">Repair summary</div>'+fv(ro['Repair Summary'],'Not provided')+'</div><div class="field-block"><div class="fl">Evidence (GTAC / COPIS / Parts)</div><div class="fv'+(!( ro['GTAC Ticket Number']||ro['Copis Case Number']||ro['Part Order Number'])?' empty':'')+'">'+([ro['GTAC Ticket Number']&&'GTAC: '+ro['GTAC Ticket Number'],ro['Copis Case Number']&&'COPIS: '+ro['Copis Case Number'],ro['Part Order Number']&&'Parts: '+ro['Part Order Number']].filter(Boolean).join('<br>')||'None on record')+'</div></div></div></div><div class="scoring-section"><h3>Score this submission</h3><div class="qi-bar"><div><div class="qi-number" id="qi-display">'+qiDisplay+'</div><div class="qi-label-small">Quality Index (0–100)</div></div><div class="qi-breakdown" id="qi-breakdown">'+CRITERIA.map(c=>'<span class="qi-chip'+(existing[c.key]?'':' unset')+'" id="chip-'+c.key+'">'+c.name.slice(0,3)+': '+(existing[c.key]||'?')+'</span>').join('')+'</div></div><div class="criteria-list">'+criteriaHtml+'</div><div class="notes-row"><label>Notes (optional)</label><textarea id="grader-notes" placeholder="Any observations about this submission...">'+escHtml(existing.notes||'')+'</textarea></div><div class="submit-row"><button class="btn-submit" id="submit-btn" onclick="submitScore()">Save score</button><span class="submit-msg" id="submit-msg">'+(existing.qi?'Previously scored — '+existing.qi.toFixed(1)+'/100 by '+escHtml(existing.gradedBy||'')+'  ·  Re-score to update':'')+'</span></div></div>';}
+function setScore(key,val,btn){const ro=ROS[currentIdx];if(!scores[ro['RO#']])scores[ro['RO#']]={};scores[ro['RO#']][key]=val;const crit=document.getElementById('crit-'+key);crit.querySelectorAll('.sbtn').forEach((b,i)=>{b.className='sbtn'+(i+1===val?' sel-'+val:'');});document.getElementById('hint-'+key).textContent=SCORE_LABELS[val];const qi=calcQI(scores[ro['RO#']]);document.getElementById('qi-display').textContent=qi!==null?qi.toFixed(1):'—';document.getElementById('chip-'+key).textContent=key.slice(0,3).charAt(0).toUpperCase()+key.slice(0,3).slice(1)+': '+val;document.getElementById('chip-'+key).classList.remove('unset');}
+function calcQI(s){const allSet=CRITERIA.every(c=>s[c.key]);if(!allSet)return null;return CRITERIA.reduce((sum,c)=>sum+s[c.key]*c.weight,0)/5*100;}
+async function submitScore(){const ro=ROS[currentIdx];const s=scores[ro['RO#']]||{};const qi=calcQI(s);if(!qi){showToast('Score all 6 criteria before saving','error');return;}const grader=document.getElementById('grader-select').value;const notes=document.getElementById('grader-notes').value;scores[ro['RO#']]={...s,qi,notes,gradedBy:grader,gradedAt:new Date().toISOString()};saveLocalScores();const btn=document.getElementById('submit-btn');btn.textContent='Saving...';btn.classList.add('saving');btn.disabled=true;let sheetOk=false;if(sheetUrl){sheetOk=await postToSheet({timestamp:new Date().toISOString(),weekLabel:'${weekLabel}',gradedBy:grader,roNumber:ro['RO#'],coach:ro.coach,dealer:ro['Dealer Name'],model:ro.Model,uaStatus:ro['UA Status'],roOpenDate:ro['RO Open Date'],repairCompleted:ro['Repair Completed?'],scoreAccuracy:s.accuracy,scoreCompleteness:s.completeness,scoreClarity:s.clarity,scoreTimeliness:s.timeliness,scoreEvidence:s.evidence,scoreActionability:s.actionability,qualityIndex:qi.toFixed(1),notes});}updateProgress();renderQueue();btn.textContent=sheetOk?'Saved to Sheet!':'Saved locally';btn.classList.remove('saving');btn.classList.add('saved');document.getElementById('submit-msg').textContent=qi.toFixed(1)+'/100 · '+grader+(!sheetUrl?' · Connect Google Sheets to sync':'');showToast(sheetOk?'Score saved to Google Sheets':'Saved locally — connect Sheets to sync',sheetOk?'success':'');setTimeout(()=>{btn.textContent='Save score';btn.classList.remove('saved');btn.disabled=false;const nextIdx=ROS.findIndex((r,i)=>i>currentIdx&&!scores[r['RO#']]);if(nextIdx!==-1){currentIdx=nextIdx;renderQueue();renderGradePanel();}},1800);}
+async function postToSheet(data){try{await fetch(sheetUrl,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});return true;}catch(e){return false;}}
+function saveSheetUrl(){const val=document.getElementById('sheet-url').value.trim();if(!val.startsWith('https://script.google.com')){showToast('Paste a valid Apps Script URL','error');return;}sheetUrl=val;localStorage.setItem('qi_sheet_url',sheetUrl);updateConnectionStatus(true);showToast('Connected!','success');}
+function updateConnectionStatus(connected){const banner=document.getElementById('setup-banner');const dot=document.getElementById('conn-dot');const status=document.getElementById('conn-status');if(connected){banner.classList.add('connected');dot.classList.add('ok');status.textContent='Connected to Google Sheets.';}else{banner.classList.remove('connected');dot.classList.remove('ok');status.textContent='Not connected to Google Sheets.';}}
+function showSetupGuide(){alert('Google Sheets setup (5 minutes):\\n\\n1. Go to sheets.google.com and create a new sheet named UC Quality Scores\\n\\n2. Go to Extensions → Apps Script, delete existing code and paste:\\n\\nfunction doPost(e) {\\n  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();\\n  var data = JSON.parse(e.postData.contents);\\n  if (sheet.getLastRow() === 0) sheet.appendRow(Object.keys(data));\\n  sheet.appendRow(Object.values(data));\\n  return ContentService.createTextOutput(\\'OK\\');\\n}\\n\\n3. Deploy → New deployment → Web app → Execute as Me → Anyone → Deploy\\n\\n4. Copy the URL and paste it in the connect box above.');}
+function exportCSV(){const gradedROs=ROS.filter(r=>scores[r['RO#']]);if(gradedROs.length===0){showToast('No scores to export yet','error');return;}const headers=['RO#','Coach','Dealer','Model','UA Status','RO Open Date','Repair Completed','Week','Accuracy','Completeness','Clarity','Timeliness','Evidence','Actionability','Quality Index','Graded By','Graded At','Notes'];const rows=gradedROs.map(r=>{const s=scores[r['RO#']];return[r['RO#'],r.coach,r['Dealer Name'],r.Model,r['UA Status'],r['RO Open Date'],r['Repair Completed?'],'${weekLabel}',s.accuracy,s.completeness,s.clarity,s.timeliness,s.evidence,s.actionability,s.qi?s.qi.toFixed(1):'',s.gradedBy||'',s.gradedAt||'',s.notes||''];});const csv=[headers,...rows].map(r=>r.map(v=>'"'+(v+'').replace(/"/g,'""')+'"').join(',')).join('\\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='UC_Quality_Scores_${weekLabel.replace(/[^a-zA-Z0-9]/g,'_')}_'+new Date().toISOString().slice(0,10)+'.csv';a.click();showToast('Exported '+gradedROs.length+' scores','success');}
+function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(msg,type){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(type?' '+type:'');clearTimeout(t._timer);t._timer=setTimeout(()=>t.className='',3000);}
+init();
+<\/script>
+</body>
+</html>`;
+}
+
+// ── Utilities ────────────────────────────────────────────────────────────
+
+function parseDate(str) {
+  if (!str) return null;
+  const s = str.trim();
+  // Try MM/DD/YYYY
+  const m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m1) return new Date(parseInt(m1[3]), parseInt(m1[1])-1, parseInt(m1[2]));
+  // Try YYYY-MM-DD
+  const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m2) return new Date(parseInt(m2[1]), parseInt(m2[2])-1, parseInt(m2[3]));
+  return null;
+}
+
+function formatDateInput(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function seededShuffle(arr, seed) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
+  const rng = () => { h ^= h << 13; h ^= h >> 17; h ^= h << 5; return (h >>> 0) / 0xffffffff; };
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function goToStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('section-'+i).classList.toggle('hidden', i !== n);
+    const step = document.getElementById('step-'+i);
+    step.classList.remove('active','done');
+    if (i < n) step.classList.add('done');
+    else if (i === n) step.classList.add('active');
+  });
+}
+
+function goBack() { goToStep(1); }
+
+function showStatus(id, msg, type) {
+  const el = document.getElementById(id);
+  el.className = 'alert alert-' + type;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' '+type : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = '', 3000);
+}
+</script>
+</body>
+</html>
