@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uptime Assist — Quality Index Tool</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F5F5F5;color:#222;font-size:14px}
+
+/* ── Top bar ── */
+.bar{background:#002B5C;color:#fff;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.bar h1{font-size:15px;font-weight:600}
+.bar-right{display:flex;gap:8px;align-items:center}
+.btn-sm{padding:5px 12px;font-size:11px;border-radius:5px;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;cursor:pointer}
+.btn-sm:hover{background:rgba(255,255,255,.15)}
+.grader-sel{font-size:11px;padding:4px 8px;border-radius:5px;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;cursor:pointer}
+.grader-sel option{color:#222;background:#fff}
+
+/* ── Sheets banner ── */
+.sheet-bar{background:#FFF3CD;border-bottom:1px solid #C5982B;padding:8px 20px;display:flex;align-items:center;gap:10px;font-size:12px;flex-shrink:0}
+.sheet-bar.ok{background:#E8F5E9;border-color:#1E7E34}
+.dot{width:8px;height:8px;border-radius:50%;background:#E67E22;flex-shrink:0}
+.dot.ok{background:#1E7E34}
+.sheet-bar input{padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:380px}
+.sheet-bar button{padding:4px 10px;background:#002B5C;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px}
+
+/* ── Tabs ── */
+.tabs{display:flex;border-bottom:1px solid #ddd;background:#fff;flex-shrink:0}
+.tab{padding:10px 20px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;color:#666;font-weight:500}
+.tab.active{color:#002B5C;border-bottom-color:#002B5C}
+.tab:hover{color:#002B5C}
+
+/* ── Pages ── */
+.page{display:none;flex:1;overflow:hidden}
+.page.active{display:flex;flex-direction:column}
+
+/* ── GENERATE page ── */
+.gen-wrap{max-width:780px;margin:0 auto;padding:24px 20px 48px;overflow-y:auto;height:100%}
+.card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:18px 20px;margin-bottom:14px}
+.card h3{font-size:13px;font-weight:700;color:#002B5C;margin-bottom:4px}
+.card p{font-size:12px;color:#555;margin-bottom:12px;line-height:1.6}
+
+.drop-zone{border:2px dashed #ddd;border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:all .15s;background:#F8F8F8;margin-bottom:10px}
+.drop-zone:hover,.drop-zone.over{border-color:#002B5C;background:#D6E4F0}
+.drop-zone.loaded{border-color:#1E7E34;background:#E8F5E9;border-style:solid}
+.drop-zone-icon{font-size:28px;margin-bottom:6px}
+.drop-zone-text{font-size:12px;color:#666}
+.drop-zone.loaded .drop-zone-text{color:#1E7E34;font-weight:600}
+
+.cfg-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.field label{font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px}
+.field input,.field select{width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:5px;font-size:13px;font-family:inherit;outline:none}
+.field input:focus,.field select:focus{border-color:#002B5C}
+.field .hint{font-size:11px;color:#999;margin-top:3px}
+
+.coach-pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid #ddd;background:#fff;cursor:pointer;color:#555;transition:all .1s;user-select:none}
+.pill.on{background:#002B5C;color:#fff;border-color:#002B5C}
+
+.alert{padding:10px 14px;border-radius:6px;font-size:12px;margin-bottom:12px;line-height:1.5}
+.alert-info{background:#D6E4F0;color:#1B4F8A;border:1px solid #B5D4F4}
+.alert-warn{background:#FEF3E2;color:#E67E22;border:1px solid #FAC775}
+.alert-ok{background:#E8F5E9;color:#1E7E34;border:1px solid #C0DD97}
+.alert-err{background:#FDECEA;color:#C0392B;border:1px solid #F7C1C1}
+
+.preview-wrap{overflow-x:auto;border:1px solid #ddd;border-radius:6px;margin-bottom:14px;max-height:320px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#002B5C;color:#fff;padding:7px 10px;text-align:left;font-size:11px;white-space:nowrap;position:sticky;top:0}
+td{padding:6px 10px;border-bottom:1px solid #F0F0F0;color:#222}
+tr:last-child td{border-bottom:none}
+.coach-sep td{background:#D6E4F0;font-weight:700;font-size:11px;color:#002B5C;padding:5px 10px}
+.bdg{font-size:10px;padding:2px 6px;border-radius:20px}
+.bdg-e{background:#FDECEA;color:#C0392B}
+.bdg-o{background:#FEF3E2;color:#E67E22}
+.bdg-s{background:#E8F5E9;color:#1E7E34}
+
+.sum-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.sum{background:#F8F8F8;border:1px solid #ddd;border-radius:6px;padding:10px 12px}
+.sum .n{font-size:22px;font-weight:700;color:#002B5C}
+.sum .l{font-size:11px;color:#999;margin-top:2px}
+
+.btn-primary{padding:10px 22px;background:#002B5C;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-primary:hover{background:#1B4F8A}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-sec{padding:10px 16px;background:#fff;color:#222;border:1px solid #ddd;border-radius:6px;font-size:13px;cursor:pointer}
+.btn-sec:hover{background:#F5F5F5}
+.btn-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn-hint{font-size:11px;color:#999}
+
+/* ── GRADE page ── */
+.grade-wrap{display:grid;grid-template-columns:280px 1fr;flex:1;overflow:hidden}
+
+.queue{border-right:1px solid #ddd;overflow-y:auto;background:#fff;display:flex;flex-direction:column}
+.q-head{padding:12px 14px 8px;border-bottom:1px solid #eee;flex-shrink:0}
+.q-head h3{font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.prog-bar{height:4px;background:#eee;border-radius:2px;overflow:hidden;margin-bottom:3px}
+.prog-fill{height:100%;background:#1E7E34;border-radius:2px;transition:width .3s}
+.prog-lbl{font-size:11px;color:#999;margin-bottom:6px}
+.ftabs{display:flex;gap:4px}
+.ftab{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid #ddd;background:#fff;cursor:pointer;color:#666}
+.ftab.on{background:#002B5C;color:#fff;border-color:#002B5C}
+
+.coach-hdr{font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.08em;padding:7px 14px 3px;background:#F8F8F8;display:flex;justify-content:space-between}
+.q-item{padding:8px 14px;cursor:pointer;border-bottom:1px solid #F0F0F0;display:grid;grid-template-columns:1fr auto;gap:4px;align-items:start;transition:background .1s}
+.q-item:hover{background:#D6E4F0}
+.q-item.active{background:#D6E4F0;border-left:3px solid #002B5C}
+.q-item.done{opacity:.55}
+.q-ro{font-size:12px;font-weight:600}
+.q-sub{font-size:11px;color:#666;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.q-badge{font-size:10px;padding:2px 6px;border-radius:20px;white-space:nowrap;margin-top:2px}
+.pend{background:#eee;color:#666}
+.graded{background:#E8F5E9;color:#1E7E34}
+
+.detail{overflow-y:auto;display:flex;flex-direction:column}
+.empty{flex:1;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:13px}
+
+.ro-top{padding:14px 18px 12px;border-bottom:1px solid #eee}
+.ro-title{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ro-num{font-size:18px;font-weight:700;color:#002B5C}
+.ro-tag{font-size:11px;padding:3px 8px;border-radius:20px;font-weight:500}
+.tag-e{background:#FDECEA;color:#C0392B}
+.tag-o{background:#FEF3E2;color:#E67E22}
+.tag-s{background:#E8F5E9;color:#1E7E34}
+.tag-d{background:#eee;color:#666}
+.ro-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.meta-lbl{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.meta-val{font-size:12px;font-weight:500}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-bottom:12px}
+.f{display:flex;flex-direction:column;gap:3px}
+.f.full{grid-column:1/-1}
+.f-lbl{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.f-val{font-size:12px;color:#222;line-height:1.5;background:#F8F8F8;border:1px solid #eee;border-radius:4px;padding:6px 8px;min-height:30px;max-height:100px;overflow-y:auto}
+.f-val.nil{color:#bbb;font-style:italic}
+
+.score-wrap{padding:14px 18px 24px}
+.score-wrap h3{font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.qi-bar{display:flex;align-items:center;justify-content:space-between;background:#002B5C;color:#fff;border-radius:8px;padding:10px 14px;margin-bottom:12px}
+.qi-num{font-size:26px;font-weight:700}
+.qi-lbl{font-size:10px;opacity:.7;margin-top:1px}
+.qi-chips{display:flex;gap:6px;flex-wrap:wrap}
+.qi-chip{font-size:10px;background:rgba(255,255,255,.12);padding:2px 7px;border-radius:20px}
+.qi-chip.nil{opacity:.35}
+
+.crit-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.crit{background:#fff;border:1px solid #ddd;border-radius:6px;padding:10px 12px}
+.crit-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px}
+.crit-name{font-size:13px;font-weight:600}
+.crit-wt{font-size:11px;color:#999}
+.crit-desc{font-size:11px;color:#666;line-height:1.5;margin-bottom:7px}
+.sbtns{display:flex;gap:4px;align-items:center}
+.sbtn{width:34px;height:30px;border-radius:5px;border:1px solid #ddd;background:#F8F8F8;font-size:12px;font-weight:600;cursor:pointer;color:#666;transition:all .1s}
+.sbtn:hover{border-color:#002B5C;color:#002B5C;background:#D6E4F0}
+.sbtn.s1,.sbtn.s2{background:#FDECEA;border-color:#F09595;color:#C0392B}
+.sbtn.s3{background:#FEF3E2;border-color:#EF9F27;color:#E67E22}
+.sbtn.s4,.sbtn.s5{background:#E8F5E9;border-color:#97C459;color:#1E7E34}
+.s-hint{font-size:10px;color:#999;margin-left:6px}
+
+.notes-lbl{font-size:11px;font-weight:600;color:#555;display:block;margin-bottom:4px}
+textarea.notes{width:100%;font-family:inherit;font-size:12px;border:1px solid #ddd;border-radius:5px;padding:7px 9px;resize:vertical;min-height:56px;outline:none}
+textarea.notes:focus{border-color:#002B5C}
+.submit-row{display:flex;gap:8px;align-items:center;margin-top:12px}
+.btn-save{padding:10px 22px;background:#002B5C;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.btn-save:hover{background:#1B4F8A}
+.btn-save:disabled{opacity:.4;cursor:not-allowed}
+.btn-save.saving{background:#E67E22}
+.btn-save.saved{background:#1E7E34}
+.save-msg{font-size:12px;color:#999}
+
+#toast{position:fixed;bottom:20px;right:20px;background:#222;color:#fff;padding:10px 16px;border-radius:6px;font-size:12px;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;z-index:999}
+#toast.show{opacity:1;transform:translateY(0)}
+#toast.ok{background:#1E7E34}
+#toast.err{background:#C0392B}
+</style>
+</head>
+<body style="display:flex;flex-direction:column;height:100vh;overflow:hidden">
+
+<!-- Top bar -->
+<div class="bar">
+  <div>
+    <h1>Uptime Assist — Quality Index Tool</h1>
+  </div>
+  <div class="bar-right">
+    <label style="font-size:11px;opacity:.7">Grading as:</label>
+    <select class="grader-sel" id="grader-sel">
+      <option>Kurt (You)</option>
+      <option>Manager</option>
+    </select>
+    <button class="btn-sm" onclick="exportCSV()">Export CSV</button>
+  </div>
+</div>
+
+<!-- Sheets banner -->
+<div class="sheet-bar" id="sheet-bar">
+  <div class="dot" id="dot"></div>
+  <span id="conn-txt">Not connected to Google Sheets.</span>
+  <span>Paste your Apps Script URL:</span>
+  <input type="text" id="sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
+  <button onclick="connectSheet()">Connect</button>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" id="tab-gen" onclick="showTab('gen')">① Generate batch</div>
+  <div class="tab" id="tab-grade" onclick="showTab('grade')">② Grade submissions <span id="tab-count" style="font-size:11px;color:#999"></span></div>
+</div>
+
+<!-- GENERATE page -->
+<div class="page active" id="page-gen" style="overflow-y:auto">
+<div class="gen-wrap">
+
+  <div class="card">
+    <h3>Step 1 — Export your SharePoint list</h3>
+    <p>Go to your California UC Reporting Data Tracking list in SharePoint → Export → Export to Excel → open in Excel → File → Save As → CSV UTF-8. Save it somewhere easy to find like your Desktop.</p>
+  </div>
+
+  <div class="card">
+    <h3>Step 2 — Load the CSV</h3>
+    <p>Drag your exported CSV file onto the box below, or click to browse for it.</p>
+    <div class="drop-zone" id="drop-zone" onclick="document.getElementById('csv-file').click()" ondragover="dzOver(event)" ondragleave="dzLeave(event)" ondrop="dzDrop(event)">
+      <div class="drop-zone-icon">📂</div>
+      <div class="drop-zone-text" id="dz-txt">Drop CSV here or click to browse</div>
+    </div>
+    <input type="file" id="csv-file" accept=".csv,.txt" style="display:none" onchange="fileSelected(event)">
+    <div id="parse-status" style="display:none;margin-top:8px"></div>
+  </div>
+
+  <div class="card" id="cfg-card" style="display:none">
+    <h3>Step 3 — Configure the batch</h3>
+    <p>Set the date range and sample size, then preview before generating.</p>
+    <div class="cfg-grid">
+      <div class="field">
+        <label>Date from</label>
+        <input type="date" id="d-from">
+        <div class="hint">RO Open Date on or after</div>
+      </div>
+      <div class="field">
+        <label>Date to</label>
+        <input type="date" id="d-to">
+        <div class="hint">RO Open Date on or before</div>
+      </div>
+      <div class="field">
+        <label>Sample size per coach</label>
+        <select id="sample-size">
+          <option value="5">5 per coach</option>
+          <option value="10" selected>10 per coach</option>
+          <option value="15">15 per coach</option>
+          <option value="0">All available</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Week label</label>
+        <input type="text" id="week-label" placeholder="e.g. Week of Feb 01">
+        <div class="hint">Used to identify this batch</div>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>Include coaches</label>
+      <div class="coach-pills" id="coach-pills"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="previewBatch()">Preview batch →</button>
+    </div>
+  </div>
+
+  <div id="preview-card" style="display:none">
+    <div class="sum-row" id="sum-row"></div>
+    <div id="preview-alert" style="display:none;margin-bottom:10px"></div>
+    <div class="preview-wrap">
+      <table>
+        <thead><tr><th>Coach</th><th>RO #</th><th>Model</th><th>Dealer</th><th>RO Open Date</th><th>UA Status</th><th>Complete?</th></tr></thead>
+        <tbody id="preview-body"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn-sec" onclick="resetPreview()">← Adjust</button>
+      <button class="btn-primary" id="load-btn" onclick="loadBatch()">Load into grader →</button>
+      <span class="btn-hint" id="load-hint"></span>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- GRADE page -->
+<div class="page" id="page-grade">
+<div class="grade-wrap">
+
+  <div class="queue">
+    <div class="q-head">
+      <h3>Queue</h3>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="prog-lbl" id="prog-lbl">0 / 0 graded</div>
+      <div class="ftabs">
+        <button class="ftab on" onclick="setFilter('all',this)">All</button>
+        <button class="ftab" onclick="setFilter('pending',this)">Pending</button>
+        <button class="ftab" onclick="setFilter('graded',this)">Graded</button>
+      </div>
+    </div>
+    <div id="queue-list"></div>
+  </div>
+
+  <div class="detail" id="detail">
+    <div class="empty">Select a submission from the queue to begin grading</div>
+  </div>
+
+</div>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="csv-file-hidden" accept=".csv" style="display:none">
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+var allRows = [];
+var batchROs = [];
+var scores = {};
+var currentIdx = null;
+var qFilter = 'all';
+var sheetUrl = localStorage.getItem('qi_sheet_url') || '';
+var currentWeek = '';
+
+var COLS = {
+  coach: 'Uptime Coach',
+  pa: 'PA Code',
+  dealer: 'Dealer Name',
+  ro: 'RO%23',
+  vin: 'VIN',
+  model: 'Model',
+  date: 'RO Open Date',
+  status: 'UA Status',
+  services: 'Services Needed Detail',
+  resp: 'Current Responsibility',
+  delay1: 'Primary Repair Delay',
+  delay2: 'Secondary Repair Delay',
+  delay3: 'Third Repair Delay',
+  delay4: 'Fourth Repair Delay',
+  v1date: 'Initial Visit Date Regarding This VIN',
+  v1sum: 'Initial Visit Summary and UC Work Details',
+  v2date: '2nd Visit Date',
+  v2sum: 'Second Visit Summary and UC Work',
+  v3date: '3rd Visit Date',
+  v3sum: 'Third Visit Summary and UC Work',
+  vcont: 'Continued Visit Dates and Summary',
+  repsum: 'Repair Summary',
+  final: 'Final Journey Comments',
+  completed: 'Repair Completed?',
+  closedDate: 'RO Closed Date',
+  days: 'Lead Time to close',
+  gtac: 'GTAC Ticket Number',
+  copis: 'Copis Case Number',
+  part: 'Part Order Number',
+  special: 'Special Attention'
+};
+
+var CRITERIA = [
+  {key:'accuracy',   name:'Accuracy',      wt:.25, desc:'Internal consistency — completed status matches closed date and days to repair.'},
+  {key:'completeness',name:'Completeness', wt:.20, desc:'Required fields filled — services needed, responsibility, visit summaries, delay category, repair summary.'},
+  {key:'clarity',    name:'Clarity',       wt:.15, desc:'Summaries are specific and clearly describe what the coach observed and did.'},
+  {key:'timeliness', name:'Timeliness',    wt:.15, desc:'Initial visit was made promptly after RO opened. Entries are dated and sequential.'},
+  {key:'evidence',   name:'Evidence',      wt:.15, desc:'Supporting docs present — GTAC, COPIS, part numbers, tech line cases where appropriate.'},
+  {key:'actionability',name:'Actionability',wt:.10,desc:'Interventions are documented with specific actions taken and outcomes noted.'}
+];
+
+var LABELS = {1:'Poor',2:'Below std',3:'Acceptable',4:'Good',5:'Excellent'};
+
+// ── Init ───────────────────────────────────────────────────────────────────
+(function init() {
+  if (sheetUrl) {
+    document.getElementById('sheet-url').value = sheetUrl;
+    setConnected(true);
+  }
+  var saved = localStorage.getItem('qi_scores');
+  if (saved) { try { scores = JSON.parse(saved); } catch(e) {} }
+  var savedBatch = localStorage.getItem('qi_batch');
+  if (savedBatch) {
+    try {
+      var b = JSON.parse(savedBatch);
+      batchROs = b.ros;
+      currentWeek = b.week;
+      document.getElementById('tab-count').textContent = '(' + batchROs.length + ' ROs)';
+    } catch(e) {}
+  }
+  renderQueue();
+  updateProgress();
+})();
+
+// ── Tabs ───────────────────────────────────────────────────────────────────
+function showTab(t) {
+  document.getElementById('page-gen').classList.toggle('active', t==='gen');
+  document.getElementById('page-grade').classList.toggle('active', t==='grade');
+  document.getElementById('tab-gen').classList.toggle('active', t==='gen');
+  document.getElementById('tab-grade').classList.toggle('active', t==='grade');
+}
+
+// ── Sheets ─────────────────────────────────────────────────────────────────
+function connectSheet() {
+  var val = document.getElementById('sheet-url').value.trim();
+  if (!val.startsWith('https://script.google.com')) {
+    toast('Paste a valid Apps Script URL (starts with https://script.google.com)', 'err');
+    return;
+  }
+  sheetUrl = val;
+  localStorage.setItem('qi_sheet_url', sheetUrl);
+  setConnected(true);
+  toast('Connected to Google Sheets', 'ok');
+}
+
+function setConnected(ok) {
+  document.getElementById('sheet-bar').classList.toggle('ok', ok);
+  document.getElementById('dot').classList.toggle('ok', ok);
+  document.getElementById('conn-txt').textContent = ok ? 'Connected to Google Sheets.' : 'Not connected to Google Sheets.';
+}
+
+// ── CSV Loading ────────────────────────────────────────────────────────────
+function dzOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('over'); }
+function dzLeave(e) { document.getElementById('drop-zone').classList.remove('over'); }
+function dzDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('over');
+  var f = e.dataTransfer.files[0];
+  if (f) readCSV(f);
+}
+function fileSelected(e) {
+  var f = e.target.files[0];
+  if (f) readCSV(f);
+}
+
+function readCSV(file) {
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    parseCSV(e.target.result, file.name);
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseCSV(text, filename) {
+  // Parse CSV respecting quoted fields
+  var rows = [];
+  var row = [], field = '', inQ = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i], n = text[i+1];
+    if (inQ) {
+      if (c==='"' && n==='"') { field+='"'; i++; }
+      else if (c==='"') inQ=false;
+      else field+=c;
+    } else {
+      if (c==='"') inQ=true;
+      else if (c==='\t' || c===',') { row.push(field.trim()); field=''; }
+      else if (c==='\n' || (c==='\r' && n==='\n')) {
+        row.push(field.trim()); if(row.some(function(v){return v;})) rows.push(row);
+        row=[]; field=''; if(c==='\r') i++;
+      } else if (c==='\r') {
+        row.push(field.trim()); if(row.some(function(v){return v;})) rows.push(row);
+        row=[]; field='';
+      } else field+=c;
+    }
+  }
+  if (field||row.length) { row.push(field.trim()); if(row.some(function(v){return v;})) rows.push(row); }
+
+  if (rows.length < 2) {
+    showStatus('parse-status', 'Could not parse file — make sure it is a CSV exported from SharePoint.', 'alert-err');
+    return;
+  }
+
+  var headers = rows[0];
+  // Detect delimiter - if first row has only 1 column, try tab
+  if (headers.length === 1 && headers[0].includes('\t')) {
+    // Re-parse as tab-delimited - already handled above
+  }
+
+  allRows = rows.slice(1).map(function(r) {
+    var obj = {};
+    headers.forEach(function(h, i) { obj[h] = r[i] || ''; });
+    return obj;
+  }).filter(function(r) { return r[COLS.coach]; });
+
+  if (allRows.length === 0) {
+    showStatus('parse-status', 'No rows found with coach data. Check that the Uptime Coach column exists.', 'alert-err');
+    return;
+  }
+
+  var coaches = getCoaches();
+  showStatus('parse-status', '✓ Loaded ' + allRows.length + ' rows across ' + coaches.length + ' coaches from ' + filename, 'alert-ok');
+
+  // Set default dates to last 7 days
+  var today = new Date();
+  var lastWeek = new Date(today);
+  lastWeek.setDate(today.getDate() - 7);
+  document.getElementById('d-from').value = fmtDate(lastWeek);
+  document.getElementById('d-to').value = fmtDate(today);
+  document.getElementById('week-label').value = 'Week of ' + lastWeek.toLocaleDateString('en-US',{month:'short',day:'2-digit'}).replace(' ','') ;
+
+  // Build coach pills
+  var pillsEl = document.getElementById('coach-pills');
+  pillsEl.innerHTML = coaches.map(function(c) {
+    return '<div class="pill on" onclick="togglePill(this)" data-coach="'+esc(c)+'">'+esc(c)+'</div>';
+  }).join('');
+
+  // Mark drop zone
+  document.getElementById('drop-zone').classList.add('loaded');
+  document.getElementById('dz-txt').textContent = '✓ ' + filename + ' — ' + allRows.length + ' rows loaded';
+  document.getElementById('cfg-card').style.display = '';
+}
+
+function getCoaches() {
+  var seen = {};
+  var coaches = [];
+  allRows.forEach(function(r) {
+    var c = r[COLS.coach];
+    if (c && !seen[c]) { seen[c]=1; coaches.push(c); }
+  });
+  return coaches.sort();
+}
+
+function togglePill(el) {
+  el.classList.toggle('on');
+}
+
+function showStatus(id, msg, cls) {
+  var el = document.getElementById(id);
+  el.className = 'alert ' + cls;
+  el.textContent = msg;
+  el.style.display = '';
+}
+
+// ── Preview ────────────────────────────────────────────────────────────────
+function previewBatch() {
+  var dFrom = document.getElementById('d-from').value;
+  var dTo = document.getElementById('d-to').value;
+  var sampleSize = parseInt(document.getElementById('sample-size').value) || 999;
+  var weekLabel = document.getElementById('week-label').value.trim() || 'Batch';
+
+  var selectedCoaches = [];
+  document.querySelectorAll('#coach-pills .pill.on').forEach(function(p) {
+    selectedCoaches.push(p.dataset.coach);
+  });
+
+  if (selectedCoaches.length === 0) { toast('Select at least one coach', 'err'); return; }
+
+  // Filter by date
+  var filtered = allRows.filter(function(r) {
+    if (!selectedCoaches.includes(r[COLS.coach])) return false;
+    var d = parseDate(r[COLS.date]);
+    if (!d) return false;
+    if (dFrom && d < new Date(dFrom)) return false;
+    if (dTo && d > new Date(dTo + 'T23:59:59')) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    var alertEl = document.getElementById('preview-alert');
+    alertEl.className = 'alert alert-warn';
+    alertEl.textContent = 'No ROs found in that date range. Try widening the dates — your export covers ' + fmtDate(parseDate(allRows[0][COLS.date])) + ' to ' + fmtDate(parseDate(allRows[allRows.length-1][COLS.date])) + '.';
+    alertEl.style.display = '';
+    document.getElementById('preview-card').style.display = '';
+    document.getElementById('preview-body').innerHTML = '';
+    document.getElementById('sum-row').innerHTML = '';
+    return;
+  }
+
+  document.getElementById('preview-alert').style.display = 'none';
+
+  // Sample per coach
+  var sampled = [];
+  selectedCoaches.forEach(function(coach) {
+    var coachRows = filtered.filter(function(r) { return r[COLS.coach] === coach; });
+    var shuffled = seededShuffle(coachRows, weekLabel + coach);
+    sampled = sampled.concat(shuffled.slice(0, sampleSize));
+  });
+
+  // Build normalized records
+  window._preview = sampled.map(function(r) {
+    return {
+      coach: r[COLS.coach] || '',
+      dealer: r[COLS.dealer] || '',
+      ro: r[COLS.ro] || '',
+      vin: r[COLS.vin] || '',
+      model: r[COLS.model] || '',
+      date: r[COLS.date] || '',
+      status: r[COLS.status] || '',
+      pa: r[COLS.pa] || '',
+      special: r[COLS.special] || '',
+      services: r[COLS.services] || '',
+      resp: r[COLS.resp] || '',
+      delays: [r[COLS.delay1],r[COLS.delay2],r[COLS.delay3],r[COLS.delay4]].filter(function(v){return v;}).join(' · '),
+      v1date: r[COLS.v1date] || '',
+      v1sum: r[COLS.v1sum] || '',
+      v2date: r[COLS.v2date] || '',
+      v2sum: r[COLS.v2sum] || '',
+      v3date: r[COLS.v3date] || '',
+      v3sum: r[COLS.v3sum] || '',
+      vcont: r[COLS.vcont] || '',
+      repsum: r[COLS.repsum] || '',
+      final: r[COLS.final] || '',
+      completed: r[COLS.completed] || '',
+      closedDate: r[COLS.closedDate] || '',
+      days: r[COLS.days] || '',
+      gtac: r[COLS.gtac] || '',
+      copis: r[COLS.copis] || '',
+      part: r[COLS.part] || ''
+    };
+  });
+
+  window._previewWeek = weekLabel;
+  window._totalFiltered = filtered.length;
+
+  renderPreview(window._preview, filtered.length, weekLabel);
+  document.getElementById('preview-card').style.display = '';
+  document.getElementById('load-hint').textContent = sampled.length + ' ROs · ' + selectedCoaches.length + ' coaches · ' + weekLabel;
+}
+
+function renderPreview(ros, total, week) {
+  var byCoach = {};
+  ros.forEach(function(r) {
+    if (!byCoach[r.coach]) byCoach[r.coach] = [];
+    byCoach[r.coach].push(r);
+  });
+
+  var coaches = Object.keys(byCoach).sort();
+  var html = '';
+  coaches.forEach(function(coach) {
+    html += '<tr class="coach-sep"><td colspan="7">' + esc(coach) + ' — ' + byCoach[coach].length + ' ROs</td></tr>';
+    byCoach[coach].forEach(function(r) {
+      var bc = r.status==='Dealer Escalated'?'bdg-e':r.status==='Off-Pace'?'bdg-o':r.status==='Within Standard'?'bdg-s':'';
+      html += '<tr><td>'+esc(r.coach)+'</td><td><strong>'+esc(r.ro)+'</strong></td><td>'+esc(r.model)+'</td><td>'+esc(r.dealer)+'</td><td>'+esc(r.date)+'</td><td>'+(r.status?'<span class="bdg '+bc+'">'+esc(r.status)+'</span>':'—')+'</td><td>'+esc(r.completed)+'</td></tr>';
+    });
+  });
+  document.getElementById('preview-body').innerHTML = html;
+
+  document.getElementById('sum-row').innerHTML =
+    '<div class="sum"><div class="n">'+ros.length+'</div><div class="l">ROs in batch</div></div>' +
+    '<div class="sum"><div class="n">'+coaches.length+'</div><div class="l">Coaches</div></div>' +
+    '<div class="sum"><div class="n">'+total+'</div><div class="l">Total in date range</div></div>' +
+    '<div class="sum"><div class="n">'+Math.round(ros.length/Math.max(coaches.length,1))+'</div><div class="l">Avg per coach</div></div>';
+}
+
+function resetPreview() {
+  document.getElementById('preview-card').style.display = 'none';
+}
+
+function loadBatch() {
+  batchROs = window._preview;
+  currentWeek = window._previewWeek;
+  // Save to localStorage for persistence
+  localStorage.setItem('qi_batch', JSON.stringify({ros: batchROs, week: currentWeek}));
+  document.getElementById('tab-count').textContent = '(' + batchROs.length + ' ROs)';
+  renderQueue();
+  updateProgress();
+  showTab('grade');
+  toast('Loaded ' + batchROs.length + ' ROs — ready to grade', 'ok');
+}
+
+// ── Queue ──────────────────────────────────────────────────────────────────
+function setFilter(f, btn) {
+  qFilter = f;
+  document.querySelectorAll('.ftab').forEach(function(b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderQueue();
+}
+
+function renderQueue() {
+  var list = document.getElementById('queue-list');
+  if (!batchROs || batchROs.length === 0) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:#999">No batch loaded. Go to ① Generate batch first.</div>';
+    return;
+  }
+
+  var coaches = [];
+  var seen = {};
+  batchROs.forEach(function(r) { if (!seen[r.coach]) { seen[r.coach]=1; coaches.push(r.coach); } });
+
+  var html = '';
+  coaches.forEach(function(coach) {
+    var coachROs = batchROs.map(function(r,i) { return {r:r,i:i}; }).filter(function(x) { return x.r.coach===coach; });
+    var visible = coachROs.filter(function(x) {
+      if (qFilter==='pending') return !scores[x.r.ro];
+      if (qFilter==='graded') return !!scores[x.r.ro];
+      return true;
+    });
+    if (!visible.length) return;
+    var doneCount = coachROs.filter(function(x) { return scores[x.r.ro]; }).length;
+    html += '<div class="coach-hdr"><span>'+esc(coach)+'</span><span style="font-weight:400">'+doneCount+'/'+coachROs.length+'</span></div>';
+    visible.forEach(function(x) {
+      var isDone = !!scores[x.r.ro];
+      var isActive = currentIdx === x.i;
+      var qi = isDone ? (+scores[x.r.ro].qi).toFixed(0) : '';
+      html += '<div class="q-item'+(isActive?' active':'')+(isDone?' done':'')+'" onclick="selectRO('+x.i+')">'+
+        '<div><div class="q-ro">RO #'+esc(x.r.ro)+'</div><div class="q-sub">'+esc(x.r.model)+' · '+esc(x.r.dealer)+'</div></div>'+
+        '<div style="text-align:right">'+(isDone?'<div style="font-size:13px;font-weight:700;color:#002B5C">'+qi+'</div>':'')+
+        '<div class="q-badge '+(isDone?'graded':'pend')+'">'+(isDone?'Graded':'Pending')+'</div></div></div>';
+    });
+  });
+  list.innerHTML = html;
+}
+
+function selectRO(idx) {
+  currentIdx = idx;
+  renderQueue();
+  renderDetail();
+}
+
+// ── Detail / Scoring ───────────────────────────────────────────────────────
+function renderDetail() {
+  var ro = batchROs[currentIdx];
+  var ex = scores[ro.ro] || {};
+  var panel = document.getElementById('detail');
+
+  var tagCls = ro.status==='Dealer Escalated'?'tag-e':ro.status==='Off-Pace'?'tag-o':ro.status==='Within Standard'?'tag-s':'tag-d';
+
+  function fv(val, empty) {
+    var v = (val||'').trim();
+    return v ? '<div class="f-val">'+esc(v)+'</div>' : '<div class="f-val nil">'+(empty||'—')+'</div>';
+  }
+
+  var critHtml = '';
+  CRITERIA.forEach(function(c) {
+    var sel = ex[c.key] || 0;
+    var btns = '';
+    for (var i=1;i<=5;i++) {
+      btns += '<button class="sbtn'+(sel===i?' s'+i:'')+'" onclick="setScore(\''+c.key+'\','+i+',this)">'+i+'</button>';
+    }
+    critHtml += '<div class="crit" id="crit-'+c.key+'">'+
+      '<div class="crit-top"><span class="crit-name">'+c.name+'</span><span class="crit-wt">'+Math.round(c.wt*100)+'% weight</span></div>'+
+      '<div class="crit-desc">'+c.desc+'</div>'+
+      '<div class="sbtns">'+btns+'<span class="s-hint" id="hint-'+c.key+'">'+(sel?LABELS[sel]:'Not scored')+'</span></div></div>';
+  });
+
+  var qi = calcQI(ex);
+  var qiTxt = qi !== null ? qi.toFixed(1) : '—';
+
+  var evidence = [ro.gtac&&'GTAC: '+ro.gtac, ro.copis&&'COPIS: '+ro.copis, ro.part&&'Parts: '+ro.part].filter(Boolean).join(' | ') || '';
+
+  panel.innerHTML =
+    '<div class="ro-top">'+
+      '<div class="ro-title">'+
+        '<span class="ro-num">RO #'+esc(ro.ro)+'</span>'+
+        (ro.status?'<span class="ro-tag '+tagCls+'">'+esc(ro.status)+'</span>':'')+
+        '<span style="font-size:11px;color:#999;margin-left:auto">'+esc(ro.coach)+'</span>'+
+      '</div>'+
+      '<div class="ro-meta">'+
+        '<div><div class="meta-lbl">Dealer</div><div class="meta-val">'+esc(ro.dealer)+'</div></div>'+
+        '<div><div class="meta-lbl">Model</div><div class="meta-val">'+esc(ro.model)+'</div></div>'+
+        '<div><div class="meta-lbl">RO Opened</div><div class="meta-val">'+esc(ro.date)+'</div></div>'+
+        '<div><div class="meta-lbl">Completed</div><div class="meta-val">'+esc(ro.completed)+(ro.closedDate?' · '+ro.closedDate:'')+'</div></div>'+
+      '</div>'+
+      '<div class="fields">'+
+        '<div class="f"><div class="f-lbl">Services needed</div>'+fv(ro.services,'Not specified')+'</div>'+
+        '<div class="f"><div class="f-lbl">Delay category</div>'+fv(ro.delays,'Not specified')+'</div>'+
+        '<div class="f full"><div class="f-lbl">Initial visit ('+esc(ro.v1date||'—')+')</div>'+fv(ro.v1sum,'No initial visit summary')+'</div>'+
+        (ro.v2date?'<div class="f full"><div class="f-lbl">2nd visit ('+esc(ro.v2date)+')</div>'+fv(ro.v2sum)+'</div>':'')+
+        (ro.v3date?'<div class="f full"><div class="f-lbl">3rd visit ('+esc(ro.v3date)+')</div>'+fv(ro.v3sum)+'</div>':'')+
+        (ro.vcont?'<div class="f full"><div class="f-lbl">Continued visits</div>'+fv(ro.vcont)+'</div>':'')+
+        '<div class="f full"><div class="f-lbl">Repair summary</div>'+fv(ro.repsum,'Not provided')+'</div>'+
+        '<div class="f full"><div class="f-lbl">Evidence (GTAC / COPIS / Parts)</div>'+fv(evidence,'None on record')+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="score-wrap">'+
+      '<h3>Score this submission</h3>'+
+      '<div class="qi-bar">'+
+        '<div><div class="qi-num" id="qi-disp">'+qiTxt+'</div><div class="qi-lbl">Quality Index (0–100)</div></div>'+
+        '<div class="qi-chips">'+
+          CRITERIA.map(function(c){return '<span class="qi-chip'+(ex[c.key]?'':' nil')+'" id="chip-'+c.key+'">'+c.name.slice(0,3)+': '+(ex[c.key]||'?')+'</span>';}).join('')+
+        '</div>'+
+      '</div>'+
+      '<div class="crit-list">'+critHtml+'</div>'+
+      '<label class="notes-lbl">Notes (optional)</label>'+
+      '<textarea class="notes" id="notes-txt" placeholder="Any observations about this submission...">'+esc(ex.notes||'')+'</textarea>'+
+      '<div class="submit-row">'+
+        '<button class="btn-save" id="save-btn" onclick="saveScore()">Save score</button>'+
+        '<span class="save-msg" id="save-msg">'+(ex.qi?'Scored '+Number(ex.qi).toFixed(1)+'/100 by '+esc(ex.by||'')+'  ·  Re-score to update':'')+'</span>'+
+      '</div>'+
+    '</div>';
+}
+
+function setScore(key, val, btn) {
+  var ro = batchROs[currentIdx];
+  if (!scores[ro.ro]) scores[ro.ro] = {};
+  scores[ro.ro][key] = val;
+
+  var crit = document.getElementById('crit-'+key);
+  crit.querySelectorAll('.sbtn').forEach(function(b,i) { b.className='sbtn'+(i+1===val?' s'+val:''); });
+  document.getElementById('hint-'+key).textContent = LABELS[val];
+
+  var qi = calcQI(scores[ro.ro]);
+  document.getElementById('qi-disp').textContent = qi!==null ? qi.toFixed(1) : '—';
+  document.getElementById('chip-'+key).textContent = key.slice(0,3)+': '+val;
+  document.getElementById('chip-'+key).classList.remove('nil');
+}
+
+function calcQI(s) {
+  var allSet = CRITERIA.every(function(c) { return s[c.key]; });
+  if (!allSet) return null;
+  return CRITERIA.reduce(function(sum,c) { return sum + s[c.key]*c.wt; }, 0) / 5 * 100;
+}
+
+async function saveScore() {
+  var ro = batchROs[currentIdx];
+  var s = scores[ro.ro] || {};
+  var qi = calcQI(s);
+  if (!qi) { toast('Score all 6 criteria before saving', 'err'); return; }
+
+  var grader = document.getElementById('grader-sel').value;
+  var notes = document.getElementById('notes-txt').value;
+
+  scores[ro.ro] = Object.assign({}, s, {qi:qi, notes:notes, by:grader, at:new Date().toISOString()});
+  localStorage.setItem('qi_scores', JSON.stringify(scores));
+
+  var btn = document.getElementById('save-btn');
+  btn.textContent = 'Saving...';
+  btn.classList.add('saving');
+  btn.disabled = true;
+
+  var posted = false;
+  if (sheetUrl) {
+    posted = await postSheet({
+      timestamp: new Date().toISOString(),
+      week: currentWeek,
+      gradedBy: grader,
+      roNumber: ro.ro,
+      coach: ro.coach,
+      dealer: ro.dealer,
+      model: ro.model,
+      uaStatus: ro.status,
+      roOpenDate: ro.date,
+      repairCompleted: ro.completed,
+      scoreAccuracy: s.accuracy,
+      scoreCompleteness: s.completeness,
+      scoreClarity: s.clarity,
+      scoreTimeliness: s.timeliness,
+      scoreEvidence: s.evidence,
+      scoreActionability: s.actionability,
+      qualityIndex: qi.toFixed(1),
+      notes: notes
+    });
+  }
+
+  updateProgress();
+  renderQueue();
+
+  btn.textContent = posted ? 'Saved to Sheets!' : 'Saved locally';
+  btn.classList.remove('saving');
+  btn.classList.add('saved');
+  document.getElementById('save-msg').textContent = qi.toFixed(1)+'/100 · '+grader+(sheetUrl?'':' · Connect Sheets to sync');
+  toast(posted ? 'Score saved to Google Sheets' : 'Saved locally — connect Sheets to sync', posted?'ok':'');
+
+  setTimeout(function() {
+    btn.textContent = 'Save score';
+    btn.classList.remove('saved');
+    btn.disabled = false;
+    // Auto-advance to next pending
+    for (var i=currentIdx+1; i<batchROs.length; i++) {
+      if (!scores[batchROs[i].ro]) { selectRO(i); return; }
+    }
+  }, 1600);
+}
+
+async function postSheet(data) {
+  try {
+    await fetch(sheetUrl, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+    return true;
+  } catch(e) { return false; }
+}
+
+function updateProgress() {
+  var total = batchROs.length;
+  var done = Object.keys(scores).length;
+  var pct = total ? Math.round(done/total*100) : 0;
+  document.getElementById('prog-fill').style.width = pct+'%';
+  document.getElementById('prog-lbl').textContent = done+' / '+total+' graded';
+}
+
+// ── Export ─────────────────────────────────────────────────────────────────
+function exportCSV() {
+  var graded = batchROs.filter(function(r) { return scores[r.ro]; });
+  if (!graded.length) { toast('No scores to export yet', 'err'); return; }
+  var hdrs = ['RO#','Week','Coach','Dealer','Model','UA Status','RO Open Date','Repair Completed','Accuracy','Completeness','Clarity','Timeliness','Evidence','Actionability','Quality Index','Graded By','Graded At','Notes'];
+  var rows = graded.map(function(r) {
+    var s = scores[r.ro];
+    return [r.ro, currentWeek, r.coach, r.dealer, r.model, r.status, r.date, r.completed, s.accuracy, s.completeness, s.clarity, s.timeliness, s.evidence, s.actionability, Number(s.qi).toFixed(1), s.by||'', s.at||'', s.notes||''];
+  });
+  var csv = [hdrs].concat(rows).map(function(r) { return r.map(function(v) { return '"'+(v+'').replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'UC_Quality_Scores_' + (currentWeek||'batch').replace(/[^a-zA-Z0-9]/g,'_') + '.csv';
+  a.click();
+  toast('Exported '+graded.length+' scores', 'ok');
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function parseDate(s) {
+  if (!s) return null;
+  s = s.trim();
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m) return new Date(+m[3], +m[1]-1, +m[2]);
+  var m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m2) return new Date(+m2[1], +m2[2]-1, +m2[3]);
+  return null;
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function seededShuffle(arr, seed) {
+  var h = 0;
+  for (var i=0;i<seed.length;i++) h = Math.imul(31,h)+seed.charCodeAt(i)|0;
+  function rng() { h^=h<<13; h^=h>>17; h^=h<<5; return (h>>>0)/0xffffffff; }
+  var a = arr.slice();
+  for (var j=a.length-1;j>0;j--) { var k=Math.floor(rng()*(j+1)); var t=a[j]; a[j]=a[k]; a[k]=t; }
+  return a;
+}
+
+function esc(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg, type) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type?' '+type:'');
+  clearTimeout(t._tmr);
+  t._tmr = setTimeout(function() { t.className=''; }, 3000);
+}
+</script>
+</body>
+</html>
