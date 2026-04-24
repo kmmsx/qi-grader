@@ -641,12 +641,8 @@ function downloadGradingFile() {
 }
 
 function buildGradingHTML(ros, weekLabel, sheetsUrl) {
-  // Escape JSON for safe embedding in script tag
-  const rosJsonRaw = JSON.stringify(ros);
-  const rosJson = rosJsonRaw
-    .replace(/<\/script>/gi, '<\/script>')
-    .replace(/ /g, '\u2028')
-    .replace(/ /g, '\u2029');
+  // Use base64 encoding to safely embed any RO data regardless of special characters
+  const rosBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(ros))));
   const sheetsUrlEscaped = encodeURIComponent(sheetsUrl||'');
   const connectedClass = sheetsUrl ? 'connected' : '';
   const connDotClass = sheetsUrl ? 'ok' : '';
@@ -807,7 +803,7 @@ function buildGradingHTML(ros, weekLabel, sheetsUrl) {
 </div>
 <div id="toast"></div>
 <script>
-const ROS=${rosJson};
+const ROS=JSON.parse(decodeURIComponent(escape(atob('${rosBase64}'))));
 const CRITERIA=[{key:'accuracy',name:'Accuracy',weight:.25,desc:'Internal consistency: completed status matches closed date, days to repair, and RO Closed flag.'},{key:'completeness',name:'Completeness',weight:.20,desc:'Required fields filled — services needed, responsibility, initial visit summary, UC work, delay category, repair summary.'},{key:'clarity',name:'Clarity',weight:.15,desc:'Visit summaries are specific, well-structured, and clearly describe what the coach observed and did.'},{key:'timeliness',name:'Timeliness',weight:.15,desc:'Initial visit was made promptly after RO opened. Entries are dated and follow a logical sequence.'},{key:'evidence',name:'Evidence',weight:.15,desc:'Supporting documentation present — GTAC, COPIS, part numbers, tech line cases where appropriate.'},{key:'actionability',name:'Actionability',weight:.10,desc:'UC interventions are clearly documented with specific actions taken and next steps or outcomes noted.'}];
 const SCORE_LABELS={1:'Poor',2:'Below std',3:'Acceptable',4:'Good',5:'Excellent'};
 let scores={},currentIdx=null,filter='all';
