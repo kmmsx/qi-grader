@@ -347,10 +347,16 @@ var COLS = {
   completed: 'Repair Completed?',
   closedDate: 'RO Closed Date',
   days: 'Lead Time to close',
+  leadOpen: 'Lead Time to Open',
+  daysOpen: '%23 RO Days Open',
   gtac: 'GTAC Ticket Number',
   copis: 'Copis Case Number',
   part: 'Part Order Number',
-  special: 'Special Attention'
+  special: 'Special Attention',
+  v1focus: 'Initial Visit Focus',
+  v2focus: '2nd Visit Focus',
+  v3focus: '3rd Visit Focus',
+  vcfocus: 'Continued Visits Focus'
 };
 
 var CRITERIA = [
@@ -596,9 +602,15 @@ function previewBatch() {
       completed: r[COLS.completed] || '',
       closedDate: r[COLS.closedDate] || '',
       days: r[COLS.days] || '',
+      leadOpen: r[COLS.leadOpen] || '',
+      daysOpen: r[COLS.daysOpen] || '',
       gtac: r[COLS.gtac] || '',
       copis: r[COLS.copis] || '',
-      part: r[COLS.part] || ''
+      part: r[COLS.part] || '',
+      v1focus: r[COLS.v1focus] || '',
+      v2focus: r[COLS.v2focus] || '',
+      v3focus: r[COLS.v3focus] || '',
+      vcfocus: r[COLS.vcfocus] || ''
     };
   });
 
@@ -743,14 +755,22 @@ function renderDetail() {
         '<div><div class="meta-lbl">Model</div><div class="meta-val">'+esc(ro.model)+'</div></div>'+
         '<div><div class="meta-lbl">RO Opened</div><div class="meta-val">'+esc(ro.date)+'</div></div>'+
         '<div><div class="meta-lbl">Completed</div><div class="meta-val">'+esc(ro.completed)+(ro.closedDate?' · '+ro.closedDate:'')+'</div></div>'+
+        '<div><div class="meta-lbl">PA Code</div><div class="meta-val">'+esc(ro.pa||'—')+'</div></div>'+
+        '<div><div class="meta-lbl">Special Attention</div><div class="meta-val" style="color:'+(ro.special&&ro.special.toUpperCase()==='TRUE'?'#C0392B':'inherit')+'">'+esc(ro.special||'—')+'</div></div>'+
+        '<div><div class="meta-lbl">Days Open</div><div class="meta-val">'+esc(ro.daysOpen||'—')+'</div></div>'+
+        '<div><div class="meta-lbl">Lead Time to Open</div><div class="meta-val">'+esc(ro.leadOpen||'—')+'</div></div>'+
       '</div>'+
       '<div class="fields">'+
         '<div class="f"><div class="f-lbl">Services needed</div>'+fv(ro.services,'Not specified')+'</div>'+
         '<div class="f"><div class="f-lbl">Delay category</div>'+fv(ro.delays,'Not specified')+'</div>'+
         '<div class="f full"><div class="f-lbl">Initial visit ('+esc(ro.v1date||'—')+')</div>'+fv(ro.v1sum,'No initial visit summary')+'</div>'+
+        (ro.v1focus?'<div class="f"><div class="f-lbl">Initial Visit Focus</div>'+fv(ro.v1focus)+'</div>':'')+
         (ro.v2date?'<div class="f full"><div class="f-lbl">2nd visit ('+esc(ro.v2date)+')</div>'+fv(ro.v2sum)+'</div>':'')+
+        (ro.v2focus?'<div class="f"><div class="f-lbl">2nd Visit Focus</div>'+fv(ro.v2focus)+'</div>':'')+
         (ro.v3date?'<div class="f full"><div class="f-lbl">3rd visit ('+esc(ro.v3date)+')</div>'+fv(ro.v3sum)+'</div>':'')+
+        (ro.v3focus?'<div class="f"><div class="f-lbl">3rd Visit Focus</div>'+fv(ro.v3focus)+'</div>':'')+
         (ro.vcont?'<div class="f full"><div class="f-lbl">Continued visits</div>'+fv(ro.vcont)+'</div>':'')+
+        (ro.vcfocus?'<div class="f"><div class="f-lbl">Continued Visits Focus</div>'+fv(ro.vcfocus)+'</div>':'')+
         '<div class="f full"><div class="f-lbl">Repair summary</div>'+fv(ro.repsum,'Not provided')+'</div>'+
         '<div class="f full"><div class="f-lbl">Evidence (GTAC / COPIS / Parts)</div>'+fv(evidence,'None on record')+'</div>'+
       '</div>'+
