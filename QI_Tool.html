@@ -171,6 +171,21 @@ textarea.notes:focus{border-color:#002B5C}
 #toast.show{opacity:1;transform:translateY(0)}
 #toast.ok{background:#1E7E34}
 #toast.err{background:#C0392B}
+
+/* ── Results ── */
+.rfilt{padding:5px 14px;font-size:12px;border-radius:20px;border:1px solid #ddd;background:#fff;cursor:pointer;color:#666;transition:all .1s}
+.rfilt.on{background:#002B5C;color:#fff;border-color:#002B5C}
+.rfilt:hover{border-color:#002B5C;color:#002B5C}
+.qi-cell{font-weight:700;text-align:center}
+.qi-hi{color:#1E7E34}
+.qi-mid{color:#E67E22}
+.qi-lo{color:#C0392B}
+.trend-up{color:#1E7E34;font-size:13px}
+.trend-dn{color:#C0392B;font-size:13px}
+.trend-fl{color:#999;font-size:13px}
+.bar-wrap{display:flex;align-items:center;gap:6px}
+.bar-inner{height:8px;border-radius:4px;background:#002B5C;transition:width .4s}
+.score-bar{width:100px;height:8px;background:#eee;border-radius:4px;overflow:hidden;flex-shrink:0}
 </style>
 </head>
 <body style="display:flex;flex-direction:column;height:100vh;overflow:hidden">
@@ -203,6 +218,7 @@ textarea.notes:focus{border-color:#002B5C}
 <div class="tabs">
   <div class="tab active" id="tab-gen" onclick="showTab('gen')">① Generate batch</div>
   <div class="tab" id="tab-grade" onclick="showTab('grade')">② Grade submissions <span id="tab-count" style="font-size:11px;color:#999"></span></div>
+  <div class="tab" id="tab-results" onclick="showTab('results')">③ Results</div>
 </div>
 
 <!-- GENERATE page -->
@@ -310,6 +326,67 @@ textarea.notes:focus{border-color:#002B5C}
 <div id="toast"></div>
 <input type="file" id="csv-file-hidden" accept=".csv" style="display:none">
 
+<!-- RESULTS page -->
+<div class="page" id="page-results" style="overflow-y:auto">
+<div class="gen-wrap">
+
+  <div class="card">
+    <h3>Coach Quality Index Results</h3>
+    <p>Scores are read directly from your Google Sheets. Make sure you are connected in the banner above. Use the filter buttons to view different time periods.</p>
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="rfilt on" id="rf-all" onclick="setRFilter('all',this)">All time</button>
+      <button class="rfilt" id="rf-4w" onclick="setRFilter('4w',this)">Last 4 weeks</button>
+      <button class="rfilt" id="rf-q" onclick="setRFilter('q',this)">This quarter</button>
+      <button class="rfilt" id="rf-week" onclick="setRFilter('week',this)">This week</button>
+      <button class="btn-primary" style="margin-left:auto;padding:6px 14px;font-size:12px" onclick="loadResults()">↻ Refresh</button>
+    </div>
+    <div id="results-status" style="display:none;margin-bottom:12px"></div>
+  </div>
+
+  <!-- Summary cards -->
+  <div id="results-summary" style="display:none">
+    <div class="sum-row" id="r-sum-row" style="grid-template-columns:repeat(4,1fr)"></div>
+
+    <!-- Coach ranking table -->
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin-bottom:10px">Coach Rankings</h3>
+      <div style="overflow-x:auto">
+        <table id="r-coach-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Coach</th>
+              <th>ROs Graded</th>
+              <th>Avg QI</th>
+              <th>Accuracy</th>
+              <th>Completeness</th>
+              <th>Clarity</th>
+              <th>Timeliness</th>
+              <th>Evidence</th>
+              <th>Actionability</th>
+              <th>Trend</th>
+            </tr>
+          </thead>
+          <tbody id="r-coach-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Week over week trend -->
+    <div class="card">
+      <h3 style="margin-bottom:10px">Quality Index by Week</h3>
+      <div id="r-trend-wrap" style="overflow-x:auto">
+        <table id="r-trend-table">
+          <thead><tr id="r-trend-head"></tr></thead>
+          <tbody id="r-trend-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 var allRows = [];
@@ -351,7 +428,12 @@ var COLS = {
   daysOpen: '%23 RO Days Open',
   gtac: 'GTAC Ticket Number',
   copis: 'Copis Case Number',
+  partEsc: 'Part Escalation Needed',
   part: 'Part Order Number',
+  partDate: 'Date Part Ordered',
+  techLineDate: 'Tech Line Case Open Date',
+  partsOrdered: 'Parts Ordered',
+  techLineNum: 'Tech Line Case Number',
   special: 'Special Attention',
   v1focus: 'Initial Visit Focus',
   v2focus: '2nd Visit Focus',
@@ -393,10 +475,11 @@ var LABELS = {1:'Poor',2:'Below std',3:'Acceptable',4:'Good',5:'Excellent'};
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 function showTab(t) {
-  document.getElementById('page-gen').classList.toggle('active', t==='gen');
-  document.getElementById('page-grade').classList.toggle('active', t==='grade');
-  document.getElementById('tab-gen').classList.toggle('active', t==='gen');
-  document.getElementById('tab-grade').classList.toggle('active', t==='grade');
+  ['gen','grade','results'].forEach(function(id) {
+    document.getElementById('page-'+id).classList.toggle('active', t===id);
+    document.getElementById('tab-'+id).classList.toggle('active', t===id);
+  });
+  if (t === 'results') loadResults();
 }
 
 // ── Sheets ─────────────────────────────────────────────────────────────────
@@ -606,7 +689,12 @@ function previewBatch() {
       daysOpen: r[COLS.daysOpen] || '',
       gtac: r[COLS.gtac] || '',
       copis: r[COLS.copis] || '',
+      partEsc: r[COLS.partEsc] || '',
       part: r[COLS.part] || '',
+      partDate: r[COLS.partDate] || '',
+      techLineDate: r[COLS.techLineDate] || '',
+      partsOrdered: r[COLS.partsOrdered] || '',
+      techLineNum: r[COLS.techLineNum] || '',
       v1focus: r[COLS.v1focus] || '',
       v2focus: r[COLS.v2focus] || '',
       v3focus: r[COLS.v3focus] || '',
@@ -741,38 +829,88 @@ function renderDetail() {
   var qi = calcQI(ex);
   var qiTxt = qi !== null ? qi.toFixed(1) : '—';
 
-  var evidence = [ro.gtac&&'GTAC: '+ro.gtac, ro.copis&&'COPIS: '+ro.copis, ro.part&&'Parts: '+ro.part].filter(Boolean).join(' | ') || '';
+  // Calculate days between RO open and closed if both exist
+  var daysBetween = '';
+  if (ro.date && ro.closedDate) {
+    var d1 = new Date(ro.date), d2 = new Date(ro.closedDate);
+    if (!isNaN(d1) && !isNaN(d2)) {
+      daysBetween = Math.round((d2-d1)/(1000*60*60*24)) + ' days';
+    }
+  }
 
   panel.innerHTML =
     '<div class="ro-top">'+
+
+      // ── Title row ──
       '<div class="ro-title">'+
         '<span class="ro-num">RO #'+esc(ro.ro)+'</span>'+
         (ro.status?'<span class="ro-tag '+tagCls+'">'+esc(ro.status)+'</span>':'')+
+        (ro.special&&ro.special.toUpperCase()==='TRUE'?'<span class="ro-tag tag-e">⚠ Special Attention</span>':'')+
         '<span style="font-size:11px;color:#999;margin-left:auto">'+esc(ro.coach)+'</span>'+
       '</div>'+
-      '<div class="ro-meta">'+
+
+      // ── Top meta grid: key reference fields ──
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">'+
         '<div><div class="meta-lbl">Dealer</div><div class="meta-val">'+esc(ro.dealer)+'</div></div>'+
-        '<div><div class="meta-lbl">Model</div><div class="meta-val">'+esc(ro.model)+'</div></div>'+
-        '<div><div class="meta-lbl">RO Opened</div><div class="meta-val">'+esc(ro.date)+'</div></div>'+
-        '<div><div class="meta-lbl">Completed</div><div class="meta-val">'+esc(ro.completed)+(ro.closedDate?' · '+ro.closedDate:'')+'</div></div>'+
+        '<div><div class="meta-lbl">Uptime Coach</div><div class="meta-val">'+esc(ro.coach)+'</div></div>'+
         '<div><div class="meta-lbl">PA Code</div><div class="meta-val">'+esc(ro.pa||'—')+'</div></div>'+
-        '<div><div class="meta-lbl">Special Attention</div><div class="meta-val" style="color:'+(ro.special&&ro.special.toUpperCase()==='TRUE'?'#C0392B':'inherit')+'">'+esc(ro.special||'—')+'</div></div>'+
-        '<div><div class="meta-lbl">Days Open</div><div class="meta-val">'+esc(ro.daysOpen||'—')+'</div></div>'+
+        '<div><div class="meta-lbl">Special Attention</div><div class="meta-val" style="font-weight:700;color:'+(ro.special&&ro.special.toUpperCase()==='TRUE'?'#C0392B':'#1E7E34')+'">'+esc(ro.special||'—')+'</div></div>'+
+        '<div><div class="meta-lbl">RO Open Date</div><div class="meta-val">'+esc(ro.date||'—')+'</div></div>'+
+        '<div><div class="meta-lbl">RO Closed Date</div><div class="meta-val">'+esc(ro.closedDate||'—')+'</div></div>'+
+        '<div><div class="meta-lbl">Days Open→Closed</div><div class="meta-val">'+esc(daysBetween||'—')+'</div></div>'+
         '<div><div class="meta-lbl">Lead Time to Open</div><div class="meta-val">'+esc(ro.leadOpen||'—')+'</div></div>'+
+        '<div><div class="meta-lbl">Lead Time to Close</div><div class="meta-val">'+esc(ro.days||'—')+'</div></div>'+
+        '<div><div class="meta-lbl">Repair Completed?</div><div class="meta-val">'+esc(ro.completed||'—')+'</div></div>'+
       '</div>'+
+
+      // ── Fields grid ──
       '<div class="fields">'+
-        '<div class="f"><div class="f-lbl">Services needed</div>'+fv(ro.services,'Not specified')+'</div>'+
-        '<div class="f"><div class="f-lbl">Delay category</div>'+fv(ro.delays,'Not specified')+'</div>'+
-        '<div class="f full"><div class="f-lbl">Initial visit ('+esc(ro.v1date||'—')+')</div>'+fv(ro.v1sum,'No initial visit summary')+'</div>'+
-        (ro.v1focus?'<div class="f"><div class="f-lbl">Initial Visit Focus</div>'+fv(ro.v1focus)+'</div>':'')+
-        (ro.v2date?'<div class="f full"><div class="f-lbl">2nd visit ('+esc(ro.v2date)+')</div>'+fv(ro.v2sum)+'</div>':'')+
-        (ro.v2focus?'<div class="f"><div class="f-lbl">2nd Visit Focus</div>'+fv(ro.v2focus)+'</div>':'')+
-        (ro.v3date?'<div class="f full"><div class="f-lbl">3rd visit ('+esc(ro.v3date)+')</div>'+fv(ro.v3sum)+'</div>':'')+
-        (ro.v3focus?'<div class="f"><div class="f-lbl">3rd Visit Focus</div>'+fv(ro.v3focus)+'</div>':'')+
-        (ro.vcont?'<div class="f full"><div class="f-lbl">Continued visits</div>'+fv(ro.vcont)+'</div>':'')+
-        (ro.vcfocus?'<div class="f"><div class="f-lbl">Continued Visits Focus</div>'+fv(ro.vcfocus)+'</div>':'')+
-        '<div class="f full"><div class="f-lbl">Repair summary</div>'+fv(ro.repsum,'Not provided')+'</div>'+
-        '<div class="f full"><div class="f-lbl">Evidence (GTAC / COPIS / Parts)</div>'+fv(evidence,'None on record')+'</div>'+
+
+        // Services Needed
+        '<div class="f full"><div class="f-lbl">Services Needed Detail</div>'+fv(ro.services,'Not specified')+'</div>'+
+
+        // Initial visit
+        '<div class="f full"><div class="f-lbl">Initial Visit Date Regarding This VIN</div>'+fv(ro.v1date,'—')+'</div>'+
+        '<div class="f full"><div class="f-lbl">Initial Visit Summary and UC Work Details</div>'+fv(ro.v1sum,'No summary entered')+'</div>'+
+        (ro.v1focus?'<div class="f full"><div class="f-lbl">Initial Visit Focus</div>'+fv(ro.v1focus)+'</div>':'')+
+
+        // 2nd visit
+        (ro.v2date||ro.v2sum?
+          '<div class="f full"><div class="f-lbl">2nd Visit Date</div>'+fv(ro.v2date,'—')+'</div>'+
+          '<div class="f full"><div class="f-lbl">Second Visit Summary and UC Work</div>'+fv(ro.v2sum,'No summary entered')+'</div>'+
+          (ro.v2focus?'<div class="f full"><div class="f-lbl">2nd Visit Focus</div>'+fv(ro.v2focus)+'</div>':'')
+        :'')+
+
+        // 3rd visit
+        (ro.v3date||ro.v3sum?
+          '<div class="f full"><div class="f-lbl">3rd Visit Date</div>'+fv(ro.v3date,'—')+'</div>'+
+          '<div class="f full"><div class="f-lbl">Third Visit Summary and UC Work</div>'+fv(ro.v3sum,'No summary entered')+'</div>'+
+          (ro.v3focus?'<div class="f full"><div class="f-lbl">3rd Visit Focus</div>'+fv(ro.v3focus)+'</div>':'')
+        :'')+
+
+        // Continued visits
+        (ro.vcont?'<div class="f full"><div class="f-lbl">Continued Visit Dates and Summary</div>'+fv(ro.vcont)+'</div>':'')+
+        (ro.vcfocus?'<div class="f full"><div class="f-lbl">Continued Visits Focus</div>'+fv(ro.vcfocus)+'</div>':'')+
+
+        // Repair summary + final comments
+        '<div class="f full"><div class="f-lbl">Repair Summary</div>'+fv(ro.repsum,'Not provided')+'</div>'+
+        '<div class="f full"><div class="f-lbl">Final Journey Comments</div>'+fv(ro.final,'Not provided')+'</div>'+
+
+        // Evidence section
+        '<div class="f full" style="margin-top:4px">'+
+          '<div class="f-lbl" style="font-size:11px;font-weight:700;color:#002B5C;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;border-top:1px solid #eee;padding-top:8px">Evidence</div>'+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+
+            '<div><div class="f-lbl">GTAC Ticket Number</div>'+fv(ro.gtac)+'</div>'+
+            '<div><div class="f-lbl">Copis Case Number</div>'+fv(ro.copis)+'</div>'+
+            '<div><div class="f-lbl">Part Escalation Needed</div>'+fv(ro.partEsc)+'</div>'+
+            '<div><div class="f-lbl">Part Order Number</div>'+fv(ro.part)+'</div>'+
+            '<div><div class="f-lbl">Date Part Ordered</div>'+fv(ro.partDate)+'</div>'+
+            '<div><div class="f-lbl">Tech Line Case Open Date</div>'+fv(ro.techLineDate)+'</div>'+
+            '<div><div class="f-lbl">Parts Ordered</div>'+fv(ro.partsOrdered)+'</div>'+
+            '<div><div class="f-lbl">Tech Line Case Number</div>'+fv(ro.techLineNum)+'</div>'+
+          '</div>'+
+        '</div>'+
+
       '</div>'+
     '</div>'+
     '<div class="score-wrap">'+
@@ -905,6 +1043,218 @@ function exportCSV() {
   a.download = 'UC_Quality_Scores_' + (currentWeek||'batch').replace(/[^a-zA-Z0-9]/g,'_') + '.csv';
   a.click();
   toast('Exported '+graded.length+' scores', 'ok');
+}
+
+// ── Results ────────────────────────────────────────────────────────────────
+var rFilter = 'all';
+var rData = [];
+
+function setRFilter(f, btn) {
+  rFilter = f;
+  document.querySelectorAll('.rfilt').forEach(function(b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderResults(rData);
+}
+
+async function loadResults() {
+  if (!sheetUrl) {
+    showStatus('results-status', 'Connect to Google Sheets first using the banner above.', 'alert-warn');
+    document.getElementById('results-status').style.display = '';
+    document.getElementById('results-summary').style.display = 'none';
+    return;
+  }
+
+  showStatus('results-status', 'Loading scores from Google Sheets...', 'alert-info');
+  document.getElementById('results-status').style.display = '';
+  document.getElementById('results-summary').style.display = 'none';
+
+  try {
+    var readUrl = sheetUrl.replace('/exec', '/exec') + '?action=read';
+    var resp = await fetch(readUrl, {method:'GET', mode:'cors'});
+    var text = await resp.text();
+    var data = JSON.parse(text);
+    if (data.error) throw new Error(data.error);
+    rData = data.rows || [];
+    if (rData.length === 0) {
+      showStatus('results-status', 'No scores found yet. Grade some submissions first.', 'alert-warn');
+      return;
+    }
+    document.getElementById('results-status').style.display = 'none';
+    document.getElementById('results-summary').style.display = '';
+    renderResults(rData);
+  } catch(e) {
+    // Fall back to local scores if sheet read fails
+    var localScores = [];
+    Object.keys(scores).forEach(function(ro) {
+      var s = scores[ro];
+      if (s.qi) {
+        localScores.push({
+          week: currentWeek,
+          coach: (batchROs.find(function(r){return r.ro===ro;})||{}).coach || '',
+          qualityIndex: s.qi,
+          scoreAccuracy: s.accuracy,
+          scoreCompleteness: s.completeness,
+          scoreClarity: s.clarity,
+          scoreTimeliness: s.timeliness,
+          scoreEvidence: s.evidence,
+          scoreActionability: s.actionability,
+          gradedBy: s.by || '',
+          timestamp: s.at || ''
+        });
+      }
+    });
+    if (localScores.length > 0) {
+      rData = localScores;
+      document.getElementById('results-status').style.display = 'none';
+      document.getElementById('results-summary').style.display = '';
+      showStatus('results-status', 'Showing local scores only — could not read from Google Sheets. Update your Apps Script to enable full history.', 'alert-warn');
+      document.getElementById('results-status').style.display = '';
+      renderResults(rData);
+    } else {
+      showStatus('results-status', 'Could not load from Google Sheets and no local scores found. Make sure your Apps Script URL is correct.', 'alert-err');
+    }
+  }
+}
+
+function filterByPeriod(rows) {
+  if (rFilter === 'all') return rows;
+  var now = new Date();
+  return rows.filter(function(r) {
+    var d = new Date(r.timestamp || r.week);
+    if (!d || isNaN(d)) return rFilter === 'all';
+    if (rFilter === '4w') {
+      var cutoff = new Date(now); cutoff.setDate(now.getDate()-28);
+      return d >= cutoff;
+    }
+    if (rFilter === 'q') {
+      var qStart = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
+      return d >= qStart;
+    }
+    if (rFilter === 'week') {
+      var wStart = new Date(now); wStart.setDate(now.getDate()-7);
+      return d >= wStart;
+    }
+    return true;
+  });
+}
+
+function renderResults(rows) {
+  var filtered = filterByPeriod(rows);
+  if (filtered.length === 0) {
+    showStatus('results-status', 'No scores found for the selected time period.', 'alert-warn');
+    document.getElementById('results-status').style.display = '';
+    document.getElementById('results-summary').style.display = 'none';
+    return;
+  }
+  document.getElementById('results-status').style.display = 'none';
+  document.getElementById('results-summary').style.display = '';
+
+  // Group by coach
+  var byCoach = {};
+  filtered.forEach(function(r) {
+    var c = r.coach;
+    if (!c) return;
+    if (!byCoach[c]) byCoach[c] = [];
+    byCoach[c].push(r);
+  });
+
+  // Summary cards
+  var coaches = Object.keys(byCoach);
+  var allQI = filtered.map(function(r){return +r.qualityIndex;}).filter(Boolean);
+  var avgQI = allQI.length ? (allQI.reduce(function(a,b){return a+b;},0)/allQI.length) : 0;
+  var topCoach = coaches.sort(function(a,b){
+    var aAvg = avg(byCoach[a].map(function(r){return +r.qualityIndex;}));
+    var bAvg = avg(byCoach[b].map(function(r){return +r.qualityIndex;}));
+    return bAvg - aAvg;
+  })[0];
+
+  document.getElementById('r-sum-row').innerHTML =
+    '<div class="sum"><div class="n">'+filtered.length+'</div><div class="l">Total ROs graded</div></div>'+
+    '<div class="sum"><div class="n">'+coaches.length+'</div><div class="l">Coaches tracked</div></div>'+
+    '<div class="sum"><div class="n">'+avgQI.toFixed(1)+'</div><div class="l">Program avg QI</div></div>'+
+    '<div class="sum"><div class="n" style="font-size:14px">'+esc(topCoach||'—')+'</div><div class="l">Top performer</div></div>';
+
+  // Get all weeks sorted
+  var weekSet = {};
+  filtered.forEach(function(r){ if(r.week) weekSet[r.week]=1; });
+  var weeks = Object.keys(weekSet).sort();
+
+  // Coach rankings table
+  var coachStats = coaches.map(function(c) {
+    var cRows = byCoach[c];
+    var qis = cRows.map(function(r){return +r.qualityIndex;}).filter(Boolean);
+    var avgScore = function(key) {
+      var vals = cRows.map(function(r){return +r[key];}).filter(Boolean);
+      return vals.length ? avg(vals) : null;
+    };
+    // Trend: compare first half vs second half
+    var sorted = cRows.slice().sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
+    var half = Math.floor(sorted.length/2);
+    var firstHalf = avg(sorted.slice(0,half).map(function(r){return +r.qualityIndex;}));
+    var secondHalf = avg(sorted.slice(half).map(function(r){return +r.qualityIndex;}));
+    var trend = sorted.length < 2 ? 0 : secondHalf - firstHalf;
+    return {
+      coach: c,
+      count: qis.length,
+      qi: avg(qis),
+      accuracy: avgScore('scoreAccuracy'),
+      completeness: avgScore('scoreCompleteness'),
+      clarity: avgScore('scoreClarity'),
+      timeliness: avgScore('scoreTimeliness'),
+      evidence: avgScore('scoreEvidence'),
+      actionability: avgScore('scoreActionability'),
+      trend: trend
+    };
+  }).sort(function(a,b){return b.qi-a.qi;});
+
+  var bodyHtml = '';
+  coachStats.forEach(function(c, i) {
+    var qiCls = c.qi>=80?'qi-hi':c.qi>=65?'qi-mid':'qi-lo';
+    var trendIcon = c.trend>1?'<span class="trend-up">↑</span>':c.trend<-1?'<span class="trend-dn">↓</span>':'<span class="trend-fl">→</span>';
+    var trendTxt = c.trend===0?'—':(c.trend>0?'+':'')+c.trend.toFixed(1);
+    function scoreCell(val) {
+      if (!val) return '<td style="text-align:center;color:#bbb">—</td>';
+      var pct = Math.round((val/5)*100);
+      return '<td><div class="bar-wrap"><div class="score-bar"><div class="bar-inner" style="width:'+pct+'%"></div></div><span style="font-size:11px;color:#555">'+val.toFixed(1)+'</span></div></td>';
+    }
+    bodyHtml += '<tr>'+
+      '<td style="color:#999;text-align:center">'+(i+1)+'</td>'+
+      '<td style="font-weight:600">'+esc(c.coach)+'</td>'+
+      '<td style="text-align:center">'+c.count+'</td>'+
+      '<td class="qi-cell '+qiCls+'">'+c.qi.toFixed(1)+'</td>'+
+      scoreCell(c.accuracy)+scoreCell(c.completeness)+scoreCell(c.clarity)+
+      scoreCell(c.timeliness)+scoreCell(c.evidence)+scoreCell(c.actionability)+
+      '<td style="text-align:center">'+trendIcon+' <span style="font-size:11px;color:#666">'+trendTxt+'</span></td>'+
+    '</tr>';
+  });
+  document.getElementById('r-coach-body').innerHTML = bodyHtml;
+
+  // Week over week trend table
+  var headHtml = '<th>Coach</th>' + weeks.map(function(w){return '<th style="white-space:nowrap">'+esc(w)+'</th>';}).join('');
+  document.getElementById('r-trend-head').innerHTML = headHtml;
+
+  var trendBodyHtml = '';
+  coachStats.forEach(function(c) {
+    trendBodyHtml += '<tr><td style="font-weight:600;white-space:nowrap">'+esc(c.coach)+'</td>';
+    weeks.forEach(function(w) {
+      var weekRows = byCoach[c.coach].filter(function(r){return r.week===w;});
+      if (!weekRows.length) {
+        trendBodyHtml += '<td style="text-align:center;color:#bbb">—</td>';
+      } else {
+        var wqi = avg(weekRows.map(function(r){return +r.qualityIndex;}));
+        var cls = wqi>=80?'qi-hi':wqi>=65?'qi-mid':'qi-lo';
+        trendBodyHtml += '<td class="qi-cell '+cls+'">'+wqi.toFixed(1)+'</td>';
+      }
+    });
+    trendBodyHtml += '</tr>';
+  });
+  document.getElementById('r-trend-body').innerHTML = trendBodyHtml;
+}
+
+function avg(arr) {
+  var valid = arr.filter(function(v){return !isNaN(v)&&v!==null&&v!==undefined;});
+  if (!valid.length) return 0;
+  return valid.reduce(function(a,b){return a+b;},0)/valid.length;
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────
