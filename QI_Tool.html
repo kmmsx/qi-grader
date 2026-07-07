@@ -274,6 +274,21 @@ textarea.notes:focus{border-color:#002B5C}
       <label>Include coaches</label>
       <div class="coach-pills" id="coach-pills"></div>
     </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>RO filter</label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer">
+          <input type="radio" name="ro-filter" id="ro-all" value="all" checked> All ROs
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer">
+          <input type="radio" name="ro-filter" id="ro-complete" value="complete"> Completed ROs only
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0;cursor:pointer">
+          <input type="radio" name="ro-filter" id="ro-open" value="open"> Open ROs only
+        </label>
+      </div>
+      <div class="hint" style="margin-top:4px">Completed = Repair Completed? is TRUE in your data</div>
+    </div>
     <div class="btn-row">
       <button class="btn-primary" onclick="previewBatch()">Preview batch →</button>
     </div>
@@ -328,60 +343,71 @@ textarea.notes:focus{border-color:#002B5C}
 
 <!-- RESULTS page -->
 <div class="page" id="page-results" style="overflow-y:auto">
-<div class="gen-wrap">
+<div class="gen-wrap" style="max-width:1000px">
 
   <div class="card">
-    <h3>Coach Quality Index Results</h3>
-    <p>Scores are read directly from your Google Sheets. Make sure you are connected in the banner above. Use the filter buttons to view different time periods.</p>
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <h3>Coach Quality Dashboard</h3>
+    <p>Scores read directly from Google Sheets. Use the period filter to change the time window. Charts show month-over-month trends so you can see if coaches are improving.</p>
+    <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap">
       <button class="rfilt on" id="rf-all" onclick="setRFilter('all',this)">All time</button>
-      <button class="rfilt" id="rf-4w" onclick="setRFilter('4w',this)">Last 4 weeks</button>
+      <button class="rfilt" id="rf-3m" onclick="setRFilter('3m',this)">Last 3 months</button>
       <button class="rfilt" id="rf-q" onclick="setRFilter('q',this)">This quarter</button>
-      <button class="rfilt" id="rf-week" onclick="setRFilter('week',this)">This week</button>
+      <button class="rfilt" id="rf-month" onclick="setRFilter('month',this)">This month</button>
       <button class="btn-primary" style="margin-left:auto;padding:6px 14px;font-size:12px" onclick="loadResults()">↻ Refresh</button>
     </div>
-    <div id="results-status" style="display:none;margin-bottom:12px"></div>
+    <div id="results-status" style="display:none;margin-top:10px"></div>
   </div>
 
-  <!-- Summary cards -->
   <div id="results-summary" style="display:none">
+
+    <!-- Summary cards -->
     <div class="sum-row" id="r-sum-row" style="grid-template-columns:repeat(4,1fr)"></div>
 
-    <!-- Coach ranking table -->
+    <!-- Month over month QI trend chart -->
     <div class="card" style="margin-bottom:14px">
-      <h3 style="margin-bottom:10px">Coach Rankings</h3>
+      <h3 style="margin-bottom:4px">Quality Index — Month over Month</h3>
+      <p style="font-size:11px;color:#999;margin-bottom:12px">Team average shown as the thick navy line. Each coach is a thinner colored line.</p>
+      <div id="chart-trend" style="width:100%;overflow-x:auto"></div>
+      <div id="chart-legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:11px"></div>
+    </div>
+
+    <!-- Coach rankings with sub-scores -->
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin-bottom:10px">Coach Rankings &amp; Category Sub-Scores</h3>
       <div style="overflow-x:auto">
         <table id="r-coach-table">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Coach</th>
-              <th>ROs Graded</th>
-              <th>Avg QI</th>
-              <th>Accuracy</th>
-              <th>Completeness</th>
-              <th>Clarity</th>
-              <th>Timeliness</th>
-              <th>Evidence</th>
-              <th>Actionability</th>
-              <th>Trend</th>
+              <th>#</th><th>Coach</th><th>ROs</th><th>Avg QI</th>
+              <th>Accuracy</th><th>Complete</th><th>Clarity</th>
+              <th>Timeliness</th><th>Evidence</th><th>Action</th><th>Trend</th>
             </tr>
           </thead>
           <tbody id="r-coach-body"></tbody>
+          <tfoot id="r-coach-foot"></tfoot>
         </table>
       </div>
     </div>
 
-    <!-- Week over week trend -->
-    <div class="card">
-      <h3 style="margin-bottom:10px">Quality Index by Week</h3>
-      <div id="r-trend-wrap" style="overflow-x:auto">
-        <table id="r-trend-table">
-          <thead><tr id="r-trend-head"></tr></thead>
-          <tbody id="r-trend-body"></tbody>
+    <!-- Month grid -->
+    <div class="card" style="margin-bottom:14px">
+      <h3 style="margin-bottom:10px">Quality Index by Month</h3>
+      <div style="overflow-x:auto">
+        <table id="r-month-table">
+          <thead><tr id="r-month-head"></tr></thead>
+          <tbody id="r-month-body"></tbody>
+          <tfoot id="r-month-foot"></tfoot>
         </table>
       </div>
     </div>
+
+    <!-- Coach notes -->
+    <div class="card">
+      <h3 style="margin-bottom:4px">Coach Notes &amp; Comments</h3>
+      <p style="font-size:11px;color:#999;margin-bottom:12px">Add ongoing notes per coach. Saved to Google Sheets so everyone sees them.</p>
+      <div id="r-notes-list"></div>
+    </div>
+
   </div>
 
 </div>
@@ -627,20 +653,32 @@ function previewBatch() {
 
   if (selectedCoaches.length === 0) { toast('Select at least one coach', 'err'); return; }
 
-  // Filter by date
+  // Get RO filter setting
+  var roFilter = document.querySelector('input[name="ro-filter"]:checked').value;
+
+  // Filter by date and completion status
   var filtered = allRows.filter(function(r) {
     if (!selectedCoaches.includes(r[COLS.coach])) return false;
     var d = parseDate(r[COLS.date]);
     if (!d) return false;
     if (dFrom && d < new Date(dFrom)) return false;
     if (dTo && d > new Date(dTo + 'T23:59:59')) return false;
+    // Apply RO completion filter
+    if (roFilter === 'complete') {
+      var comp = (r[COLS.completed]||'').toString().trim().toLowerCase();
+      if (comp !== 'true' && comp !== 'yes' && comp !== '1') return false;
+    }
+    if (roFilter === 'open') {
+      var comp2 = (r[COLS.completed]||'').toString().trim().toLowerCase();
+      if (comp2 === 'true' || comp2 === 'yes' || comp2 === '1') return false;
+    }
     return true;
   });
 
   if (filtered.length === 0) {
     var alertEl = document.getElementById('preview-alert');
     alertEl.className = 'alert alert-warn';
-    alertEl.textContent = 'No ROs found in that date range. Try widening the dates — your export covers ' + fmtDate(parseDate(allRows[0][COLS.date])) + ' to ' + fmtDate(parseDate(allRows[allRows.length-1][COLS.date])) + '.';
+    alertEl.textContent = 'No ROs found for those settings. Try widening the date range or changing the RO filter. Your export covers ' + fmtDate(parseDate(allRows[0][COLS.date])) + ' to ' + fmtDate(parseDate(allRows[allRows.length-1][COLS.date])) + '.';
     alertEl.style.display = '';
     document.getElementById('preview-card').style.display = '';
     document.getElementById('preview-body').innerHTML = '';
@@ -853,6 +891,7 @@ function renderDetail() {
       '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">'+
         '<div><div class="meta-lbl">Dealer</div><div class="meta-val">'+esc(ro.dealer)+'</div></div>'+
         '<div><div class="meta-lbl">Uptime Coach</div><div class="meta-val">'+esc(ro.coach)+'</div></div>'+
+        '<div><div class="meta-lbl">VIN</div><div class="meta-val" style="font-family:monospace;font-size:11px">'+esc(ro.vin||'—')+'</div></div>'+
         '<div><div class="meta-lbl">PA Code</div><div class="meta-val">'+esc(ro.pa||'—')+'</div></div>'+
         '<div><div class="meta-lbl">Special Attention</div><div class="meta-val" style="font-weight:700;color:'+(ro.special&&ro.special.toUpperCase()==='TRUE'?'#C0392B':'#1E7E34')+'">'+esc(ro.special||'—')+'</div></div>'+
         '<div><div class="meta-lbl">RO Open Date</div><div class="meta-val">'+esc(ro.date||'—')+'</div></div>'+
@@ -1074,7 +1113,14 @@ async function loadResults() {
     var text = await resp.text();
     var data = JSON.parse(text);
     if (data.error) throw new Error(data.error);
-    rData = data.rows || [];
+    var allRecords = data.rows || [];
+    // Separate score rows from note rows
+    rData = allRecords.filter(function(r){ return r.recordType !== 'note' && r.qualityIndex; });
+    // Load latest note per coach
+    coachNotes = {};
+    allRecords.filter(function(r){ return r.recordType === 'note'; }).forEach(function(r) {
+      coachNotes[r.coach] = r.note; // later rows overwrite earlier = latest wins
+    });
     if (rData.length === 0) {
       showStatus('results-status', 'No scores found yet. Grade some submissions first.', 'alert-warn');
       return;
@@ -1120,23 +1166,38 @@ function filterByPeriod(rows) {
   if (rFilter === 'all') return rows;
   var now = new Date();
   return rows.filter(function(r) {
-    var d = new Date(r.timestamp || r.week);
+    var d = new Date(r.timestamp);
     if (!d || isNaN(d)) return rFilter === 'all';
-    if (rFilter === '4w') {
-      var cutoff = new Date(now); cutoff.setDate(now.getDate()-28);
+    if (rFilter === '3m') {
+      var cutoff = new Date(now); cutoff.setMonth(now.getMonth()-3);
       return d >= cutoff;
     }
     if (rFilter === 'q') {
       var qStart = new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
       return d >= qStart;
     }
-    if (rFilter === 'week') {
-      var wStart = new Date(now); wStart.setDate(now.getDate()-7);
-      return d >= wStart;
+    if (rFilter === 'month') {
+      var mStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      return d >= mStart;
     }
     return true;
   });
 }
+
+// Assign a score to a month key (YYYY-MM) based on graded timestamp
+function monthKey(r) {
+  var d = new Date(r.timestamp);
+  if (!d || isNaN(d)) return 'Unknown';
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function monthLabel(key) {
+  if (key === 'Unknown') return 'Unknown';
+  var parts = key.split('-');
+  var names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return names[+parts[1]-1] + ' ' + parts[0];
+}
+
+var COACH_COLORS = ['#C0392B','#1E7E34','#8E44AD','#E67E22','#16A085','#2980B9','#D35400','#7F8C8D','#C5982B','#2C3E50'];
 
 function renderResults(rows) {
   var filtered = filterByPeriod(rows);
@@ -1158,97 +1219,212 @@ function renderResults(rows) {
     byCoach[c].push(r);
   });
 
-  // Summary cards
   var coaches = Object.keys(byCoach);
-  var allQI = filtered.map(function(r){return +r.qualityIndex;}).filter(Boolean);
-  var avgQI = allQI.length ? (allQI.reduce(function(a,b){return a+b;},0)/allQI.length) : 0;
-  var topCoach = coaches.sort(function(a,b){
-    var aAvg = avg(byCoach[a].map(function(r){return +r.qualityIndex;}));
-    var bAvg = avg(byCoach[b].map(function(r){return +r.qualityIndex;}));
-    return bAvg - aAvg;
-  })[0];
+  var allQI = filtered.map(function(r){return +r.qualityIndex;}).filter(function(v){return !isNaN(v);});
+  var avgQI = allQI.length ? avg(allQI) : 0;
 
-  document.getElementById('r-sum-row').innerHTML =
-    '<div class="sum"><div class="n">'+filtered.length+'</div><div class="l">Total ROs graded</div></div>'+
-    '<div class="sum"><div class="n">'+coaches.length+'</div><div class="l">Coaches tracked</div></div>'+
-    '<div class="sum"><div class="n">'+avgQI.toFixed(1)+'</div><div class="l">Program avg QI</div></div>'+
-    '<div class="sum"><div class="n" style="font-size:14px">'+esc(topCoach||'—')+'</div><div class="l">Top performer</div></div>';
-
-  // Get all weeks sorted
-  var weekSet = {};
-  filtered.forEach(function(r){ if(r.week) weekSet[r.week]=1; });
-  var weeks = Object.keys(weekSet).sort();
-
-  // Coach rankings table
+  // Coach stats sorted by QI
   var coachStats = coaches.map(function(c) {
     var cRows = byCoach[c];
-    var qis = cRows.map(function(r){return +r.qualityIndex;}).filter(Boolean);
+    var qis = cRows.map(function(r){return +r.qualityIndex;}).filter(function(v){return !isNaN(v);});
     var avgScore = function(key) {
-      var vals = cRows.map(function(r){return +r[key];}).filter(Boolean);
+      var vals = cRows.map(function(r){return +r[key];}).filter(function(v){return !isNaN(v)&&v>0;});
       return vals.length ? avg(vals) : null;
     };
-    // Trend: compare first half vs second half
     var sorted = cRows.slice().sort(function(a,b){return new Date(a.timestamp)-new Date(b.timestamp);});
     var half = Math.floor(sorted.length/2);
     var firstHalf = avg(sorted.slice(0,half).map(function(r){return +r.qualityIndex;}));
     var secondHalf = avg(sorted.slice(half).map(function(r){return +r.qualityIndex;}));
     var trend = sorted.length < 2 ? 0 : secondHalf - firstHalf;
     return {
-      coach: c,
-      count: qis.length,
-      qi: avg(qis),
-      accuracy: avgScore('scoreAccuracy'),
-      completeness: avgScore('scoreCompleteness'),
-      clarity: avgScore('scoreClarity'),
-      timeliness: avgScore('scoreTimeliness'),
-      evidence: avgScore('scoreEvidence'),
-      actionability: avgScore('scoreActionability'),
+      coach: c, count: qis.length, qi: avg(qis),
+      accuracy: avgScore('scoreAccuracy'), completeness: avgScore('scoreCompleteness'),
+      clarity: avgScore('scoreClarity'), timeliness: avgScore('scoreTimeliness'),
+      evidence: avgScore('scoreEvidence'), actionability: avgScore('scoreActionability'),
       trend: trend
     };
   }).sort(function(a,b){return b.qi-a.qi;});
 
+  var topCoach = coachStats.length ? coachStats[0].coach : '—';
+
+  // ── Summary cards ──
+  document.getElementById('r-sum-row').innerHTML =
+    '<div class="sum"><div class="n">'+filtered.length+'</div><div class="l">Total ROs graded</div></div>'+
+    '<div class="sum"><div class="n">'+coaches.length+'</div><div class="l">Coaches tracked</div></div>'+
+    '<div class="sum"><div class="n">'+avgQI.toFixed(1)+'</div><div class="l">Team average QI</div></div>'+
+    '<div class="sum"><div class="n" style="font-size:14px">'+esc(topCoach)+'</div><div class="l">Top performer</div></div>';
+
+  // ── Monthly data ──
+  var monthSet = {};
+  filtered.forEach(function(r){ monthSet[monthKey(r)] = 1; });
+  var months = Object.keys(monthSet).sort();
+
+  // Build month-over-month series: team avg + per coach
+  var teamSeries = months.map(function(m) {
+    var mRows = filtered.filter(function(r){return monthKey(r)===m;});
+    return avg(mRows.map(function(r){return +r.qualityIndex;}));
+  });
+  var coachSeries = {};
+  coachStats.forEach(function(cs) {
+    coachSeries[cs.coach] = months.map(function(m) {
+      var mRows = byCoach[cs.coach].filter(function(r){return monthKey(r)===m;});
+      return mRows.length ? avg(mRows.map(function(r){return +r.qualityIndex;})) : null;
+    });
+  });
+
+  drawTrendChart(months, teamSeries, coachSeries, coachStats);
+
+  // ── Coach rankings table ──
   var bodyHtml = '';
   coachStats.forEach(function(c, i) {
     var qiCls = c.qi>=80?'qi-hi':c.qi>=65?'qi-mid':'qi-lo';
-    var trendIcon = c.trend>1?'<span class="trend-up">↑</span>':c.trend<-1?'<span class="trend-dn">↓</span>':'<span class="trend-fl">→</span>';
-    var trendTxt = c.trend===0?'—':(c.trend>0?'+':'')+c.trend.toFixed(1);
-    function scoreCell(val) {
-      if (!val) return '<td style="text-align:center;color:#bbb">—</td>';
+    var trendIcon = c.trend>1?'<span class="trend-up">▲</span>':c.trend<-1?'<span class="trend-dn">▼</span>':'<span class="trend-fl">—</span>';
+    var trendTxt = c.trend===0?'':(c.trend>0?'+':'')+c.trend.toFixed(1);
+    function sc(val) {
+      if (val===null) return '<td style="text-align:center;color:#bbb">—</td>';
       var pct = Math.round((val/5)*100);
-      return '<td><div class="bar-wrap"><div class="score-bar"><div class="bar-inner" style="width:'+pct+'%"></div></div><span style="font-size:11px;color:#555">'+val.toFixed(1)+'</span></div></td>';
+      var col = val>=4?'#1E7E34':val>=3?'#E67E22':'#C0392B';
+      return '<td><div class="bar-wrap"><div class="score-bar"><div class="bar-inner" style="width:'+pct+'%;background:'+col+'"></div></div><span style="font-size:11px;color:#555">'+val.toFixed(1)+'</span></div></td>';
     }
     bodyHtml += '<tr>'+
       '<td style="color:#999;text-align:center">'+(i+1)+'</td>'+
       '<td style="font-weight:600">'+esc(c.coach)+'</td>'+
       '<td style="text-align:center">'+c.count+'</td>'+
       '<td class="qi-cell '+qiCls+'">'+c.qi.toFixed(1)+'</td>'+
-      scoreCell(c.accuracy)+scoreCell(c.completeness)+scoreCell(c.clarity)+
-      scoreCell(c.timeliness)+scoreCell(c.evidence)+scoreCell(c.actionability)+
+      sc(c.accuracy)+sc(c.completeness)+sc(c.clarity)+sc(c.timeliness)+sc(c.evidence)+sc(c.actionability)+
       '<td style="text-align:center">'+trendIcon+' <span style="font-size:11px;color:#666">'+trendTxt+'</span></td>'+
     '</tr>';
   });
   document.getElementById('r-coach-body').innerHTML = bodyHtml;
 
-  // Week over week trend table
-  var headHtml = '<th>Coach</th>' + weeks.map(function(w){return '<th style="white-space:nowrap">'+esc(w)+'</th>';}).join('');
-  document.getElementById('r-trend-head').innerHTML = headHtml;
+  // Team average footer row
+  function teamAvg(key) {
+    var vals = filtered.map(function(r){return +r[key];}).filter(function(v){return !isNaN(v)&&v>0;});
+    return vals.length ? avg(vals) : null;
+  }
+  function fc(val) {
+    if (val===null) return '<td style="text-align:center;color:#bbb">—</td>';
+    return '<td style="text-align:center;font-weight:700;color:#002B5C">'+val.toFixed(1)+'</td>';
+  }
+  document.getElementById('r-coach-foot').innerHTML =
+    '<tr style="border-top:2px solid #002B5C;background:#F8F8F8">'+
+      '<td></td><td style="font-weight:700;color:#002B5C">TEAM AVERAGE</td>'+
+      '<td style="text-align:center;font-weight:700">'+filtered.length+'</td>'+
+      '<td class="qi-cell" style="color:#002B5C">'+avgQI.toFixed(1)+'</td>'+
+      fc(teamAvg('scoreAccuracy'))+fc(teamAvg('scoreCompleteness'))+fc(teamAvg('scoreClarity'))+
+      fc(teamAvg('scoreTimeliness'))+fc(teamAvg('scoreEvidence'))+fc(teamAvg('scoreActionability'))+
+      '<td></td>'+
+    '</tr>';
 
-  var trendBodyHtml = '';
+  // ── Month grid ──
+  document.getElementById('r-month-head').innerHTML =
+    '<th>Coach</th>' + months.map(function(m){return '<th style="white-space:nowrap">'+monthLabel(m)+'</th>';}).join('');
+  var mBody = '';
   coachStats.forEach(function(c) {
-    trendBodyHtml += '<tr><td style="font-weight:600;white-space:nowrap">'+esc(c.coach)+'</td>';
-    weeks.forEach(function(w) {
-      var weekRows = byCoach[c.coach].filter(function(r){return r.week===w;});
-      if (!weekRows.length) {
-        trendBodyHtml += '<td style="text-align:center;color:#bbb">—</td>';
-      } else {
-        var wqi = avg(weekRows.map(function(r){return +r.qualityIndex;}));
-        var cls = wqi>=80?'qi-hi':wqi>=65?'qi-mid':'qi-lo';
-        trendBodyHtml += '<td class="qi-cell '+cls+'">'+wqi.toFixed(1)+'</td>';
+    mBody += '<tr><td style="font-weight:600;white-space:nowrap">'+esc(c.coach)+'</td>';
+    months.forEach(function(m) {
+      var v = coachSeries[c.coach][months.indexOf(m)];
+      if (v===null) { mBody += '<td style="text-align:center;color:#bbb">—</td>'; }
+      else {
+        var cls = v>=80?'qi-hi':v>=65?'qi-mid':'qi-lo';
+        mBody += '<td class="qi-cell '+cls+'">'+v.toFixed(1)+'</td>';
       }
     });
-    trendBodyHtml += '</tr>';
+    mBody += '</tr>';
   });
-  document.getElementById('r-trend-body').innerHTML = trendBodyHtml;
+  document.getElementById('r-month-body').innerHTML = mBody;
+  document.getElementById('r-month-foot').innerHTML =
+    '<tr style="border-top:2px solid #002B5C;background:#F8F8F8"><td style="font-weight:700;color:#002B5C">TEAM AVG</td>'+
+    months.map(function(m,i){var v=teamSeries[i];var cls=v>=80?'qi-hi':v>=65?'qi-mid':'qi-lo';return '<td class="qi-cell '+cls+'">'+(v?v.toFixed(1):'—')+'</td>';}).join('')+'</tr>';
+
+  // ── Coach notes ──
+  renderNotes(coachStats.map(function(c){return c.coach;}));
+}
+
+// ── SVG line chart ──
+function drawTrendChart(months, teamSeries, coachSeries, coachStats) {
+  if (months.length === 0) { document.getElementById('chart-trend').innerHTML = '<p style="color:#999;font-size:12px">Not enough data yet.</p>'; return; }
+  var W = Math.max(600, months.length*120), H = 300, pad = {t:20,r:20,b:40,l:40};
+  var plotW = W-pad.l-pad.r, plotH = H-pad.t-pad.b;
+  var yMin = 40, yMax = 100;
+  function x(i){ return pad.l + (months.length===1 ? plotW/2 : (i/(months.length-1))*plotW); }
+  function y(v){ return pad.t + plotH - ((v-yMin)/(yMax-yMin))*plotH; }
+
+  var svg = '<svg width="'+W+'" height="'+H+'" style="font-family:inherit">';
+  // Grid lines + y labels
+  for (var g=yMin; g<=yMax; g+=10) {
+    var gy = y(g);
+    svg += '<line x1="'+pad.l+'" y1="'+gy+'" x2="'+(W-pad.r)+'" y2="'+gy+'" stroke="#eee"/>';
+    svg += '<text x="'+(pad.l-6)+'" y="'+(gy+3)+'" text-anchor="end" font-size="10" fill="#999">'+g+'</text>';
+  }
+  // X labels
+  months.forEach(function(m,i){
+    svg += '<text x="'+x(i)+'" y="'+(H-pad.b+18)+'" text-anchor="middle" font-size="11" fill="#666">'+monthLabel(m)+'</text>';
+  });
+  // Coach lines
+  coachStats.forEach(function(cs, ci) {
+    var color = COACH_COLORS[ci % COACH_COLORS.length];
+    var series = coachSeries[cs.coach];
+    var pts = [];
+    series.forEach(function(v,i){ if(v!==null) pts.push([x(i),y(v),i,v]); });
+    if (pts.length > 1) {
+      var path = pts.map(function(p,i){return (i===0?'M':'L')+p[0]+','+p[1];}).join(' ');
+      svg += '<path d="'+path+'" fill="none" stroke="'+color+'" stroke-width="1.5" opacity="0.7"/>';
+    }
+    pts.forEach(function(p){ svg += '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="3" fill="'+color+'"/>'; });
+  });
+  // Team average line (thick navy)
+  var teamPts = teamSeries.map(function(v,i){return [x(i),y(v),i,v];});
+  if (teamPts.length > 1) {
+    var tpath = teamPts.map(function(p,i){return (i===0?'M':'L')+p[0]+','+p[1];}).join(' ');
+    svg += '<path d="'+tpath+'" fill="none" stroke="#002B5C" stroke-width="3.5"/>';
+  }
+  teamPts.forEach(function(p){
+    svg += '<circle cx="'+p[0]+'" cy="'+p[1]+'" r="4" fill="#002B5C"/>';
+    svg += '<text x="'+p[0]+'" y="'+(p[1]-10)+'" text-anchor="middle" font-size="10" font-weight="700" fill="#002B5C">'+p[3].toFixed(0)+'</text>';
+  });
+  svg += '</svg>';
+  document.getElementById('chart-trend').innerHTML = svg;
+
+  // Legend
+  var legend = '<div style="display:flex;align-items:center;gap:5px"><div style="width:16px;height:3px;background:#002B5C"></div><strong>Team average</strong></div>';
+  coachStats.forEach(function(cs, ci) {
+    var color = COACH_COLORS[ci % COACH_COLORS.length];
+    legend += '<div style="display:flex;align-items:center;gap:5px"><div style="width:16px;height:2px;background:'+color+'"></div>'+esc(cs.coach)+'</div>';
+  });
+  document.getElementById('chart-legend').innerHTML = legend;
+}
+
+// ── Coach notes ──
+var coachNotes = {};
+function renderNotes(coaches) {
+  var html = '';
+  coaches.forEach(function(c) {
+    var existing = coachNotes[c] || '';
+    var safeId = c.replace(/[^a-zA-Z0-9]/g,'_');
+    html += '<div style="border:1px solid #ddd;border-radius:6px;padding:10px 12px;margin-bottom:8px">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+        '<strong style="font-size:13px">'+esc(c)+'</strong>'+
+        '<button class="btn-sec" style="padding:4px 12px;font-size:11px" onclick="saveNote(\''+safeId+'\',\''+esc(c).replace(/'/g,"\\\\'")+'\')">Save note</button>'+
+      '</div>'+
+      '<textarea id="note-'+safeId+'" class="notes" style="min-height:48px" placeholder="Add coaching notes, feedback, or action items for '+esc(c)+'...">'+esc(existing)+'</textarea>'+
+    '</div>';
+  });
+  document.getElementById('r-notes-list').innerHTML = html;
+}
+
+async function saveNote(safeId, coach) {
+  var txt = document.getElementById('note-'+safeId).value;
+  coachNotes[coach] = txt;
+  if (sheetUrl) {
+    try {
+      await fetch(sheetUrl, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({recordType:'note', coach:coach, note:txt, timestamp:new Date().toISOString(), gradedBy:document.getElementById('grader-sel').value})});
+      toast('Note saved for '+coach, 'ok');
+    } catch(e) { toast('Note saved locally only', ''); }
+  } else {
+    toast('Connect Sheets to sync notes', '');
+  }
 }
 
 function avg(arr) {
